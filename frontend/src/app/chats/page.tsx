@@ -12,23 +12,23 @@ export default function AIInteractionPage() {
   const [manualMsg, setManualMsg] = useState("");
   const [isSending, setIsSending] = useState(false);
 
-  useEffect(() => {
-    async function fetchConversations() {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select(`
-          *,
-          customers(full_name, mobile_number)
-        `)
-        .order('created_at', { ascending: false });
+  const fetchConversations = async () => {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select(`
+        *,
+        customers(full_name, mobile_number)
+      `)
+      .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setConversations(data);
-        if (data.length > 0 && !selected) setSelected(data[0]);
-      }
-      setLoading(false);
+    if (!error && data) {
+      setConversations(data);
+      if (data.length > 0 && !selected) setSelected(data[0]);
     }
+    setLoading(false);
+  };
 
+  useEffect(() => {
     fetchConversations();
 
     const channel = supabase
@@ -41,7 +41,7 @@ export default function AIInteractionPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selected]);
+  }, []);
 
   const handleManualSend = async (e: React.FormEvent) => {
     e.preventDefault();
