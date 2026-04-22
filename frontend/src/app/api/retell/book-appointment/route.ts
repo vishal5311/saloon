@@ -23,6 +23,10 @@ export async function POST(req: Request) {
       customer = newCust;
     }
 
+    if (!customer) {
+      return NextResponse.json({ error: "Failed to create or find customer" }, { status: 500 });
+    }
+
     // 2. Book Appointment
     const { data: appointment, error: appErr } = await supabase
       .from('appointments')
@@ -38,7 +42,9 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-    if (appErr) throw appErr;
+    if (appErr || !appointment) {
+      return NextResponse.json({ error: appErr?.message || "Failed to book appointment" }, { status: 500 });
+    }
 
     return NextResponse.json({ 
       success: true, 
