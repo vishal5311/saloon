@@ -1,14 +1,7 @@
-"use client";
-
 import { motion } from "framer-motion";
-import { 
-  TrendingUp, 
-  Users, 
-  CheckCircle2, 
-  MessageSquare,
-  Database
-} from "lucide-react";
+import { Users, CheckCircle2, TrendingUp, MessageSquare, Database } from "lucide-react";
 import { useState, useEffect } from "react";
+import { dataService } from "@/lib/data-service";
 import { supabase } from "@/lib/supabase";
 
 export default function StatsGrid() {
@@ -21,97 +14,60 @@ export default function StatsGrid() {
     { label: "AI Calls Today", value: "0", change: "Live", trendingUp: true, icon: MessageSquare, key: 'ai_calls' },
   ]);
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const todayTimestamp = `${today}T00:00:00`;
-
-        // 1. Fetch Customers Count
-        const { count: customerCount, error: custErr } = await supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', 1);
-        if (custErr) console.error("Stats Fetch Error (Customers):", custErr);
-
-        // 2. Fetch Today's Bookings
-        const { count: todayBookings, error: appTodayErr } = await supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', 1)
-          .eq('date', todayTimestamp);
-        if (appTodayErr) console.error("Stats Fetch Error (Today Bookings):", appTodayErr);
-
-        // 3. Fetch Pending (Scheduled) Appointments
-        const { count: pendingCount, error: pendErr } = await supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', 1)
-          .eq('status', 'scheduled');
-        if (pendErr) console.error("Stats Fetch Error (Pending):", pendErr);
-
-        // 3b. Fetch Total Bookings
-        const { count: totalBookings, error: totalErr } = await supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', 1);
-        if (totalErr) console.error("Stats Fetch Error (Total):", totalErr);
-
-        // 4. Fetch AI Calls Today
-        const { count: aiCallsCount, error: callErr } = await supabase
-          .from('conversations')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', 1)
-          .gte('created_at', todayTimestamp);
-        if (callErr) console.error("Stats Fetch Error (Calls):", callErr);
-
-        setStats(prev => prev.map(s => {
-          if (s.key === 'customers') return { ...s, value: `${customerCount || 0}` };
-          if (s.key === 'today_bookings') return { ...s, value: `${todayBookings || 0}` };
-          if (s.key === 'total_bookings') return { ...s, value: `${totalBookings || 0}` };
-          if (s.key === 'pending') return { ...s, value: `${pendingCount || 0}` };
-          if (s.key === 'ai_calls') return { ...s, value: `${aiCallsCount || 0}` };
-          return s;
-        }));
-      } catch (e) {
-        console.error("Critical Dashboard Sync Error:", e);
-      } finally {
-        setLoading(false);
-      }
+  async function fetchStats() {
+    try {
+      const data = await dataService.getDashboardStats();
+      
+      setStats(prev => prev.map(s => {
+        if (s.key === 'customers') return { ...s, value: `${data.totalCustomers}` };
+        if (s.key === 'today_bookings') return { ...s, value: `${data.todayBookings}` };
+        if (s.key === 'total_bookings') return { ...s, value: `${data.totalBookings}` };
+        if (s.key === 'pending') return { ...s, value: `${data.pendingAppointments}` };
+        if (s.key === 'ai_calls') return { ...s, value: `${data.aiCallsToday}` };
+        return s;
+      }));
+    } catch (e) {
+      console.error("Dashboard Stats Fetch Failed:", e);
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     fetchStats();
-    
-    // Set up real-time subscription for all relevant tables
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        fetchStats();
-      })
-      .subscribe();
+
+    // REALTIME: Subscribe to changes and refresh stats
+    const channels = [
+      supabase.channel('stats-apps').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, fetchStats).subscribe(),
+      supabase.channel('stats-cust').on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchStats).subscribe(),
+      supabase.channel('stats-conv').on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, fetchStats).subscribe()
+    ];
 
     return () => {
-      supabase.removeChannel(channel);
+      channels.forEach(c => supabase.removeChannel(c));
     };
   }, []);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {stats.map((stat, i) => (
         <motion.div
           key={stat.label}
-          initial={{ opacity: 0, y: 15 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: i * 0.1 }}
-          className="glass p-6 rounded-3xl group hover:border-white/10 transition-colors relative border border-white/5"
+          transition={{ delay: i * 0.1 }}
+          className="glass p-6 rounded-3xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300"
         >
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-3 bg-white/5 rounded-2xl group-hover:bg-purple-600/20 transition-colors">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <stat.icon className="w-12 h-12 text-purple-400" />
+          </div>
+          
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-purple-500/10 rounded-xl">
               <stat.icon className="w-5 h-5 text-purple-400" />
             </div>
-            <div className={`px-2 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 bg-emerald-500/10 text-emerald-400`}>
+            <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${stat.trendingUp ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'}`}>
               {stat.change}
-              <Database className="w-3 h-3" />
             </div>
           </div>
           
@@ -126,4 +82,3 @@ export default function StatsGrid() {
     </div>
   );
 }
-

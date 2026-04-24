@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus, User, Scissors } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { dataService } from "@/lib/data-service";
+import { getToday, formatDate, normalizeDate } from "@/lib/date-utils";
 import BookingModal from "@/components/Dashboard/BookingModal";
 
 const timeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
@@ -12,31 +14,49 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+
+  /**
+   * Smart Default View Logic
+   */
+  async function initializeView() {
+    setLoading(true);
+    try {
+      // Check if there are upcoming appointments to center the view
+      const nearestDate = await dataService.getNearestUpcomingAppointment();
+      if (nearestDate) {
+        setSelectedDate(new Date(nearestDate));
+      } else {
+        setSelectedDate(new Date()); // Default to today
+      }
+    } catch (e) {
+      console.error("View initialization failed:", e);
+    }
+  }
 
   async function fetchAppointments() {
     setLoading(true);
-    const dateStr = selectedDate.toISOString().split('T')[0];
-    const { data } = await supabase
-      .from('appointments')
-      .select('*, customers(full_name), services(name), stylists(full_name)')
-      .eq('tenant_id', 1)
-      .eq('date', `${dateStr}T00:00:00`)
-      .order('start_time', { ascending: true });
-
-    if (data) setAppointments(data);
-    setLoading(false);
+    try {
+      const data = await dataService.getAppointmentsByDate(selectedDate);
+      setAppointments(data);
+    } catch (e) {
+      console.error("Fetch appointments failed:", e);
+    } finally {
+      setLoading(false);
+    }
   }
+
+  useEffect(() => {
+    initializeView();
+  }, []);
 
   useEffect(() => {
     fetchAppointments();
 
     const channel = supabase
-      .channel('appointments-realtime-v2')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-        fetchAppointments();
-      })
+      .channel('appointments-realtime-v3')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, fetchAppointments)
       .subscribe();
 
     return () => {
@@ -72,7 +92,6 @@ export default function AppointmentsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Date Selector Mini Calendar */}
         <div className="glass p-6 rounded-3xl h-fit">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold">
@@ -105,7 +124,7 @@ export default function AppointmentsPage() {
             {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => <div key={d}>{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-2 text-center">
-            {Array.from({ length: 30 }).map((_, i) => (
+            {Array.from({ length: 31 }).map((_, i) => (
               <button 
                 key={i} 
                 onClick={() => {
@@ -121,14 +140,13 @@ export default function AppointmentsPage() {
           </div>
         </div>
 
-        {/* Daily Schedule View */}
         <div className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between glass p-4 rounded-2xl mb-4">
             <div className="flex items-center gap-4">
               <h4 className="text-lg font-bold">
                 {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </h4>
-              {selectedDate.toDateString() === new Date().toDateString() && (
+              {formatDate(selectedDate) === getToday() && (
                 <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-md uppercase">Today</span>
               )}
             </div>
@@ -170,7 +188,7 @@ export default function AppointmentsPage() {
                               <User className="w-3 h-3" /> {app.customers?.full_name || 'Walk-in'}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-zinc-400">
-                              <Scissors className="w-3 h-3" /> {app.stylists?.full_name || 'Any Stylist'}
+                              <Scissors className="w-3 h-3" /> {app.stylists?.name || 'Any Stylist'}
                             </div>
                           </div>
                         </motion.div>
@@ -198,7 +216,3 @@ export default function AppointmentsPage() {
     </div>
   );
 }
-
-
-
-

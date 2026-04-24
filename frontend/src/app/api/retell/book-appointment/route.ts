@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { combineDateAndTime, normalizeDate } from '@/lib/date-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
@@ -19,7 +20,7 @@ export async function OPTIONS() {
 
 export async function GET() {
   return NextResponse.json(
-    { status: 'active', message: 'Retell Book Appointment API is running. Use POST to book.' },
+    { status: 'active', message: 'Retell Book Appointment API is running.' },
     { headers: corsHeaders }
   );
 }
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
     }
 
     const normalizedPhone = String(phone).trim();
+    const normalizedDateStr = normalizeDate(date);
 
     // 4. Find/create customer by phone
     let customerId = null;
@@ -64,18 +66,16 @@ export async function POST(request: Request) {
         .single();
       
       if (custErr || !newCustomer) {
-        throw new Error(custErr?.message || "Failed to create customer");
+        throw new Error("Failed to create customer record.");
       }
       customerId = newCustomer.id;
     }
 
-    // 5. Find service by case-insensitive name
+    // 5. Find service
     let resolvedServiceId = null;
-    let durationMinutes = 30; // default
+    let durationMinutes = 30; 
     if (service) {
       const normalizedService = service.trim().toLowerCase();
-      
-      // First attempt: exact match (case insensitive)
       let { data: serviceData } = await supabaseServer
         .from('services')
         .select('id, duration_minutes')
@@ -85,7 +85,6 @@ export async function POST(request: Request) {
         .limit(1)
         .maybeSingle();
       
-      // Second attempt: fallback contains search
       if (!serviceData) {
         const { data: fallbackData } = await supabaseServer
           .from('services')
@@ -95,7 +94,6 @@ export async function POST(request: Request) {
           .ilike('name', `%${normalizedService}%`)
           .limit(1)
           .maybeSingle();
-        
         serviceData = fallbackData;
       }
       
@@ -103,11 +101,11 @@ export async function POST(request: Request) {
         resolvedServiceId = serviceData.id;
         if (serviceData.duration_minutes) durationMinutes = serviceData.duration_minutes;
       } else {
-        return Response.json({ success: false, message: "Requested service not available." }, { status: 400, headers: corsHeaders });
+        return Response.json({ success: false, message: "I'm sorry, I couldn't find that specific service in our menu. Could you name it again?" }, { status: 400, headers: corsHeaders });
       }
     }
 
-    // 6. Find stylist optional
+    // 6. Find stylist (corrected schema: name)
     let resolvedStylistId = null;
     if (stylist) {
       const { data: stylistData } = await supabaseServer
@@ -124,26 +122,24 @@ export async function POST(request: Request) {
       }
     }
 
-    // Duplicate check
-    const startTimeStr = time.includes(':') ? time : `${time}:00`;
-    const startTimeFull = `${date}T${startTimeStr}:00`;
+    // Duplicate check using DateEngine
+    const startTimeFull = combineDateAndTime(normalizedDateStr, time);
 
     const { data: duplicate } = await supabaseServer
       .from('appointments')
       .select('id')
       .eq('customer_id', customerId)
-      .eq('date', `${date}T00:00:00`)
+      .eq('date', `${normalizedDateStr}T00:00:00`)
       .eq('start_time', startTimeFull)
       .eq('status', 'scheduled')
       .limit(1)
       .maybeSingle();
 
     if (duplicate) {
-      // Fetch alternatives
       const { data: booked } = await supabaseServer
         .from('appointments')
         .select('start_time')
-        .eq('date', `${date}T00:00:00`)
+        .eq('date', `${normalizedDateStr}T00:00:00`)
         .not('status', 'eq', 'cancelled');
       
       const ALL_SLOTS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
@@ -152,20 +148,18 @@ export async function POST(request: Request) {
 
       return Response.json({ 
         success: false, 
-        message: `That ${startTimeStr} slot is already taken. However, I can offer you ${alternatives.join(', ')} instead. Which one works best for you?` 
+        message: `It looks like that ${time} slot is already booked. I do have ${alternatives.join(', ')} available though. Which works for you?` 
       }, { status: 400, headers: corsHeaders });
     }
 
-    // 7. Convert timestamps
-    const [hours, minutes] = startTimeStr.split(':').map(Number);
-    const endDate = new Date(`${date}T00:00:00`);
-    endDate.setHours(hours, minutes + durationMinutes, 0, 0);
+    // 7. Calculate End Time
+    const [hours, minutes] = time.split(':').map(Number);
+    const endDateObj = new Date(`${normalizedDateStr}T00:00:00`);
+    endDateObj.setHours(hours, minutes + durationMinutes, 0, 0);
     
-    const endHours = String(endDate.getHours()).padStart(2, '0');
-    const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-    const endTimeFull = `${date}T${endHours}:${endMinutes}:00`;
-
-    const appointmentDate = `${date}T00:00:00`;
+    const endH = String(endDateObj.getHours()).padStart(2, '0');
+    const endM = String(endDateObj.getMinutes()).padStart(2, '0');
+    const endTimeFull = combineDateAndTime(normalizedDateStr, `${endH}:${endM}`);
 
     // 8. Insert into appointments
     const { data: appointment, error: appErr } = await supabaseServer
@@ -175,11 +169,10 @@ export async function POST(request: Request) {
         customer_id: customerId,
         stylist_id: resolvedStylistId,
         service_id: resolvedServiceId,
-        date: appointmentDate,
+        date: `${normalizedDateStr}T00:00:00`,
         start_time: startTimeFull,
         end_time: endTimeFull,
         status: 'scheduled',
-        reminder_sent: false,
         booked_by_ai: true
       }])
       .select('id')
@@ -188,14 +181,13 @@ export async function POST(request: Request) {
     if (appErr || !appointment) {
       return Response.json({ 
         success: false, 
-        message: "I'm sorry, I encountered a slight hiccup while saving your spot. Could we try picking that time again, or would you like to speak with a manager?" 
+        message: "I'm having a little trouble saving that appointment. Could we try one more time?" 
       }, { status: 500, headers: corsHeaders });
     }
 
-    // 9. Return
     return Response.json({ 
       success: true, 
-      message: `Perfect! I've booked your ${service} for ${date} at ${startTimeStr}. We look forward to seeing you!`,
+      message: `Excellent! I've booked your ${service} for ${normalizedDateStr} at ${time}. We'll see you then!`,
       booking_id: appointment.id
     }, { headers: corsHeaders });
 
@@ -203,7 +195,7 @@ export async function POST(request: Request) {
     console.error(error);
     return Response.json({
       success: false,
-      message: "I'm having a bit of trouble connecting to our schedule right now. Could you please hold for a moment or try again in a minute?"
+      message: "Our booking system is acting up slightly. Could you please try again in a moment?"
     }, { status: 500, headers: corsHeaders });
   }
 }
