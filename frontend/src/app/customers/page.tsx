@@ -1,15 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Search, Phone, MoreVertical, Plus, User, Activity, Sparkles, RefreshCw } from "lucide-react";
+import { Search, Phone, MoreVertical, Plus, User, Activity, Sparkles, RefreshCw, Edit2, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { dataService } from "@/lib/data-service";
 import { supabase } from "@/lib/supabase";
+import CustomerModal from "@/components/Dashboard/CustomerModal";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Modal States
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
   async function fetchCustomers() {
     setLoading(true);
@@ -41,10 +46,27 @@ export default function CustomersPage() {
     c.mobile_number?.includes(searchQuery)
   );
 
+  const handleOpenEdit = (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setSelectedCustomer(null);
+    setIsModalOpen(true);
+  };
+
   return (
     <div className="relative space-y-10 max-w-[1400px] mx-auto">
       {/* Background Grid */}
       <div className="absolute inset-0 figma-grid-bg opacity-10 fixed pointer-events-none" />
+
+      <CustomerModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={fetchCustomers}
+        customer={selectedCustomer}
+      />
 
       {/* Header Area */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative z-10">
@@ -57,7 +79,10 @@ export default function CustomersPage() {
           <p className="text-white/40 mt-2 font-light">Global customer database and loyalty infrastructure.</p>
         </div>
         
-        <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl text-sm font-bold transition-all transform hover:scale-[1.02] shadow-xl shadow-blue-600/20">
+        <button 
+          onClick={handleOpenCreate}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl text-sm font-bold transition-all transform hover:scale-[1.02] shadow-xl shadow-blue-600/20"
+        >
           <Plus className="w-4 h-4" />
           Onboard Customer
         </button>
@@ -105,7 +130,7 @@ export default function CustomersPage() {
                   <th className="px-10 py-6 text-[10px] uppercase font-bold tracking-widest text-white/30 text-center">Loyalty Pts</th>
                   <th className="px-10 py-6 text-[10px] uppercase font-bold tracking-widest text-white/30">Flow Volume</th>
                   <th className="px-10 py-6 text-[10px] uppercase font-bold tracking-widest text-white/30">Last Activity</th>
-                  <th className="px-10 py-6 text-[10px] uppercase font-bold tracking-widest text-white/30 text-right">Status</th>
+                  <th className="px-10 py-6 text-[10px] uppercase font-bold tracking-widest text-white/30 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -123,6 +148,7 @@ export default function CustomersPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
                       className="hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                      onClick={() => handleOpenEdit(customer)}
                     >
                       <td className="px-10 py-6">
                         <div className="flex items-center gap-4">
@@ -150,9 +176,15 @@ export default function CustomersPage() {
                       </td>
                       <td className="px-10 py-6 text-sm text-white/40 font-light">{lastVisit}</td>
                       <td className="px-10 py-6 text-right">
-                        <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full uppercase tracking-tighter border border-blue-500/20">
-                          Verified
-                        </span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(customer);
+                          }}
+                          className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/10 group-hover:text-blue-500"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </motion.tr>
                   );
