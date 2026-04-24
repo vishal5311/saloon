@@ -73,18 +73,35 @@ export async function POST(request: Request) {
     let resolvedServiceId = null;
     let durationMinutes = 30; // default
     if (service) {
-      const { data: serviceData } = await supabaseServer
+      const normalizedService = service.trim().toLowerCase();
+      
+      // First attempt: exact match (case insensitive)
+      let { data: serviceData } = await supabaseServer
         .from('services')
-        .select('id, duration')
+        .select('id, duration_minutes')
         .eq('tenant_id', 1)
         .eq('active', true)
-        .ilike('name', service.trim())
+        .ilike('name', normalizedService)
         .limit(1)
         .maybeSingle();
       
+      // Second attempt: fallback contains search
+      if (!serviceData) {
+        const { data: fallbackData } = await supabaseServer
+          .from('services')
+          .select('id, duration_minutes')
+          .eq('tenant_id', 1)
+          .eq('active', true)
+          .ilike('name', `%${normalizedService}%`)
+          .limit(1)
+          .maybeSingle();
+        
+        serviceData = fallbackData;
+      }
+      
       if (serviceData) {
         resolvedServiceId = serviceData.id;
-        if (serviceData.duration) durationMinutes = serviceData.duration;
+        if (serviceData.duration_minutes) durationMinutes = serviceData.duration_minutes;
       } else {
         return Response.json({ success: false, message: "Requested service not available." }, { status: 400, headers: corsHeaders });
       }
