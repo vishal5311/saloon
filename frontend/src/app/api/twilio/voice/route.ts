@@ -2,28 +2,34 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { status: 'active', message: 'Twilio Voice Webhook is running. Twilio sends POST requests here.' },
+    { headers: corsHeaders }
+  );
 }
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const from = formData.get('From');
-    
+
     // Retell Voice API expects a specific TwiML structure to connect
     // You would typically use the Retell SDK here, or raw TwiML if using a custom connector
     // For this implementation, we return TwiML that redirects to Retell's WebSocket
-    
+
     const agentId = process.env.RETELL_AGENT_ID || "your_retell_agent_id";
-    
+
     // Example TwiML for Retell Integration
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -37,10 +43,11 @@ export async function POST(req: Request) {
     return new NextResponse(twiml, {
       headers: {
         'Content-Type': 'text/xml',
+        ...corsHeaders,
       },
     });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders });
   }
 }

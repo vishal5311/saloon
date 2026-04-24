@@ -1,34 +1,47 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { status: 'active', message: 'Retell Book Appointment API is running. Use POST to book.' },
+    { headers: corsHeaders }
+  );
 }
 
 export async function POST(req: Request) {
   try {
     const { phone, full_name, date, time, service_id, stylist_id } = await req.json();
 
+    if (!phone || !date || !time) {
+      return NextResponse.json(
+        { error: "phone, date, and time are required" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
     // 1. Ensure Customer Exists
-    let { data: customer } = await supabase
+    let { data: customer } = await supabaseServer
       .from('customers')
       .select('id')
       .eq('mobile_number', phone)
       .single();
 
     if (!customer) {
-      const { data: newCust, error: custErr } = await supabase
+      const { data: newCust, error: custErr } = await supabaseServer
         .from('customers')
-        .insert([{ full_name, mobile_number: phone }])
+        .insert([{ full_name: full_name || 'Walk-in Customer', mobile_number: phone }])
         .select()
         .single();
       
@@ -37,18 +50,20 @@ export async function POST(req: Request) {
     }
 
     if (!customer) {
-      return NextResponse.json({ error: "Failed to create or find customer" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to create or find customer" }, { status: 500, headers: corsHeaders });
     }
 
     // 2. Book Appointment
-    const { data: appointment, error: appErr } = await supabase
+    // appointments columns: id, customer_id, service_id, stylist_id, date, start_time, end_time, status, booked_by_ai
+    const startTime = time.includes(':') ? time : `${time}:00:00`;
+    const { data: appointment, error: appErr } = await supabaseServer
       .from('appointments')
       .insert([{
         customer_id: customer.id,
-        service_id: service_id || "75a349c2-5536-47b7-959c-6a0d4817a021", // Fallback to generic service
-        stylist_id: stylist_id || "717ca165-8025-45a8-9d45-6677c74f51e2", // Fallback to any stylist
+        service_id: service_id || null,
+        stylist_id: stylist_id || null,
         date,
-        start_time: time.includes(':') ? time : `${time}:00:00`,
+        start_time: startTime,
         booked_by_ai: true,
         status: 'scheduled'
       }])
@@ -56,16 +71,16 @@ export async function POST(req: Request) {
       .single();
 
     if (appErr || !appointment) {
-      return NextResponse.json({ error: appErr?.message || "Failed to book appointment" }, { status: 500 });
+      return NextResponse.json({ error: appErr?.message || "Failed to book appointment" }, { status: 500, headers: corsHeaders });
     }
 
     return NextResponse.json({ 
       success: true, 
       appointment_id: appointment.id,
       message: `Great! I've booked your appointment for ${date} at ${time}. We look forward to seeing you!`
-    });
+    }, { headers: corsHeaders });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders });
   }
 }
