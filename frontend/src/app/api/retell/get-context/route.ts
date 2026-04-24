@@ -67,13 +67,29 @@ export async function POST(req: Request) {
       }, { headers: corsHeaders });
     }
 
+    // Format context for Retell LLM
     const lastVisit = customer.visits?.[0];
     const lastAppointment = customer.appointments?.find((a: any) => a.status === 'completed') || customer.appointments?.[0];
     const lastStylist = lastAppointment?.stylists?.name || "one of our experts";
 
+    // Filter upcoming scheduled appointments
+    const upcoming = (customer.appointments || [])
+      .filter((a: any) => a.status === 'scheduled' && a.date >= `${today}T00:00:00`)
+      .map((a: any) => ({
+        id: a.id,
+        date: a.date.split('T')[0],
+        time: a.start_time.split('T')[1].substring(0, 5),
+        stylist: a.stylists?.name || "Unknown",
+        service: a.services?.name || "Service"
+      }));
+
     const historyContext = lastVisit 
       ? `Their last visit was on ${lastVisit.visit_date} with ${lastStylist}.`
       : `They are a registered customer but haven't visited recently.`;
+
+    const upcomingContext = upcoming.length > 0
+      ? `They ALREADY HAVE an upcoming booking: ${upcoming.map(u => `${u.service} on ${u.date} at ${u.time}`).join(', ')}.`
+      : `They have no upcoming bookings.`;
 
     return NextResponse.json({
       exists: true,
@@ -82,14 +98,17 @@ export async function POST(req: Request) {
       loyalty_points: customer.loyalty_points,
       last_visit: lastVisit?.visit_date || "N/A",
       favorite_stylist: lastStylist,
+      upcoming_appointments: upcoming,
       context_prompt: `Today is ${today}. The caller is ${customer.full_name}. ${historyContext} 
+      ${upcomingContext}
       They have ${customer.loyalty_points || 0} loyalty points. 
       
       CRITICAL INSTRUCTIONS:
-      1. Use TODAY (${today}) as the absolute reference for all relative dates (tomorrow, next week).
-      2. NEVER use sample years like 2024.
-      3. Greet them by name: "Welcome back ${customer.full_name}!"
-      4. Suggest booking with ${lastStylist} if they liked their last visit.`
+      1. If they have an upcoming booking, MENTION IT IMMEDIATELY in the greeting. "I see you're already scheduled for ${upcoming[0]?.service} tomorrow at ${upcoming[0]?.time}."
+      2. If they ask to book for the SAME time, tell them they are already booked.
+      3. Offer to keep, reschedule, or cancel the existing booking.
+      4. Suggest adding a service (hair spa, wash, or facial) to their existing visit.
+      5. Greet them warmly: "Welcome back ${customer.full_name}!"`
     }, { headers: corsHeaders });
 
   } catch (err: any) {
