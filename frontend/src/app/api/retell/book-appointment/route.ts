@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       .eq('tenant_id', 1)
       .eq('mobile_number', phone)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (existingCustomer) {
       customerId = existingCustomer.id;
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
         .eq('active', true)
         .ilike('name', service.trim())
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (serviceData) {
         resolvedServiceId = serviceData.id;
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
         .eq('active', true)
         .ilike('name', stylist.trim())
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (stylistData) {
         resolvedStylistId = stylistData.id;
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       .eq('start_time', startTimeFull)
       .eq('status', 'scheduled')
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (duplicate) {
       return Response.json({ success: false, message: "You already have an appointment at this time." }, { status: 400, headers: corsHeaders });
