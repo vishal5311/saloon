@@ -47,8 +47,8 @@ export async function POST(req: Request) {
       date,
       available_slots: availableSlots,
       message: availableSlots.length > 0 
-        ? `We have slots available at ${availableSlots.join(', ')}.` 
-        : "Sorry, we are fully booked for that day."
+        ? `I have looked at our schedule for ${date}, and we have openings at ${availableSlots.join(', ')}. Which of these would you prefer?` 
+        : `I'm so sorry, but it looks like we are fully booked on ${date}. Would you like me to check the following day for you?`
     }, { headers: corsHeaders });
 
   } catch (err: any) {

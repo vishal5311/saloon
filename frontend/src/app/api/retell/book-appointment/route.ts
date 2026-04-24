@@ -139,7 +139,21 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (duplicate) {
-      return Response.json({ success: false, message: "You already have an appointment at this time." }, { status: 400, headers: corsHeaders });
+      // Fetch alternatives
+      const { data: booked } = await supabaseServer
+        .from('appointments')
+        .select('start_time')
+        .eq('date', `${date}T00:00:00`)
+        .not('status', 'eq', 'cancelled');
+      
+      const ALL_SLOTS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+      const bookedTimes = booked?.map(b => b.start_time?.split('T')[1]?.substring(0, 5)) || [];
+      const alternatives = ALL_SLOTS.filter(s => !bookedTimes.includes(s)).slice(0, 3);
+
+      return Response.json({ 
+        success: false, 
+        message: `That ${startTimeStr} slot is already taken. However, I can offer you ${alternatives.join(', ')} instead. Which one works best for you?` 
+      }, { status: 400, headers: corsHeaders });
     }
 
     // 7. Convert timestamps
@@ -172,25 +186,24 @@ export async function POST(request: Request) {
       .single();
 
     if (appErr || !appointment) {
-      throw new Error(appErr?.message || "Failed to insert appointment");
+      return Response.json({ 
+        success: false, 
+        message: "I'm sorry, I encountered a slight hiccup while saving your spot. Could we try picking that time again, or would you like to speak with a manager?" 
+      }, { status: 500, headers: corsHeaders });
     }
 
     // 9. Return
     return Response.json({ 
       success: true, 
+      message: `Perfect! I've booked your ${service} for ${date} at ${startTimeStr}. We look forward to seeing you!`,
       booking_id: appointment.id
     }, { headers: corsHeaders });
 
   } catch (error: any) {
-    // 10. REAL catch block
     console.error(error);
-
     return Response.json({
       success: false,
-      message: String(error.message),
-      code: error.code || null,
-      details: error.details || null,
-      hint: error.hint || null
+      message: "I'm having a bit of trouble connecting to our schedule right now. Could you please hold for a moment or try again in a minute?"
     }, { status: 500, headers: corsHeaders });
   }
 }

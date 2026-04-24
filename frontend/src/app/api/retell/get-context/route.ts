@@ -39,36 +39,49 @@ export async function POST(req: Request) {
     // appointments table columns: id, customer_id, service_id, stylist_id, date, start_time, end_time, status, booked_by_ai
     const { data: customer, error } = await supabaseServer
       .from('customers')
-      .select('*, visits(visit_date, service_id, notes), appointments(id, date, start_time, status, stylist_id)')
+      .select(`
+        *, 
+        visits(visit_date, service_id, notes), 
+        appointments(id, date, start_time, status, stylists(full_name))
+      `)
       .eq('mobile_number', phone)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 
     if (!customer) {
       return NextResponse.json({ 
         exists: false,
-        message: "New customer. Introduce yourself as the Salon AI receptionist." 
+        message: "New customer. Warmly welcome them to the salon and ask how you can help." 
       }, { headers: corsHeaders });
     }
 
     // Format context for Retell LLM
     const lastVisit = customer.visits?.[0];
-    const lastCompletedAppointment = customer.appointments?.find((a: any) => a.status === 'completed');
+    const lastAppointment = customer.appointments?.find((a: any) => a.status === 'completed') || customer.appointments?.[0];
+    const lastStylist = lastAppointment?.stylists?.full_name || "one of our experts";
+
+    const historyContext = lastVisit 
+      ? `Their last visit was on ${lastVisit.visit_date} with ${lastStylist}.`
+      : `They haven't visited us yet, but they are in our system.`;
 
     return NextResponse.json({
       exists: true,
       full_name: customer.full_name,
       loyalty_points: customer.loyalty_points,
       last_visit: lastVisit?.visit_date || "N/A",
-      favorite_stylist: lastCompletedAppointment?.stylist_id || null,
-      context_prompt: `The caller is ${customer.full_name}. They have ${customer.loyalty_points || 0} loyalty points. Their last visit was ${lastVisit?.visit_date || 'never'}. Be friendly and ask if they want to book their usual service.
-IMPORTANT RULES:
-1. Always use current real date and calculate tomorrow correctly. Never use outdated example dates.
-2. Only confirm booking after book_appointment returns success=true.
-3. If booking fails, apologize and retry or escalate. Never fake confirmation.`
+      favorite_stylist: lastStylist,
+      context_prompt: `Welcome back ${customer.full_name}! ${historyContext} 
+      They have ${customer.loyalty_points || 0} loyalty points. 
+      Ask if they want to book a service or have a specific question.
+      
+      IMPORTANT RULES:
+      1. DO NOT ask for their phone number - you already know who they are.
+      2. If they want to book, use check_slots first.
+      3. Always suggest alternatives if a slot is taken.
+      4. Be warm, human, and professional.`
     }, { headers: corsHeaders });
 
   } catch (err: any) {

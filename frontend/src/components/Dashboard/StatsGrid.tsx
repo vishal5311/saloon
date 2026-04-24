@@ -16,6 +16,7 @@ export default function StatsGrid() {
   const [stats, setStats] = useState([
     { label: "Total Customers", value: "0", change: "Live", trendingUp: true, icon: Users, key: 'customers' },
     { label: "Today Bookings", value: "0", change: "Live", trendingUp: true, icon: CheckCircle2, key: 'today_bookings' },
+    { label: "Total Bookings", value: "0", change: "Live", trendingUp: true, icon: Database, key: 'total_bookings' },
     { label: "Pending Appts", value: "0", change: "Live", trendingUp: true, icon: TrendingUp, key: 'pending' },
     { label: "AI Calls Today", value: "0", change: "Live", trendingUp: true, icon: MessageSquare, key: 'ai_calls' },
   ]);
@@ -49,6 +50,13 @@ export default function StatsGrid() {
           .eq('status', 'scheduled');
         if (pendErr) console.error("Stats Fetch Error (Pending):", pendErr);
 
+        // 3b. Fetch Total Bookings
+        const { count: totalBookings, error: totalErr } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', 1);
+        if (totalErr) console.error("Stats Fetch Error (Total):", totalErr);
+
         // 4. Fetch AI Calls Today
         const { count: aiCallsCount, error: callErr } = await supabase
           .from('conversations')
@@ -60,6 +68,7 @@ export default function StatsGrid() {
         setStats(prev => prev.map(s => {
           if (s.key === 'customers') return { ...s, value: `${customerCount || 0}` };
           if (s.key === 'today_bookings') return { ...s, value: `${todayBookings || 0}` };
+          if (s.key === 'total_bookings') return { ...s, value: `${totalBookings || 0}` };
           if (s.key === 'pending') return { ...s, value: `${pendingCount || 0}` };
           if (s.key === 'ai_calls') return { ...s, value: `${aiCallsCount || 0}` };
           return s;
