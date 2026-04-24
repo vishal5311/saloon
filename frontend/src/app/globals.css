@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #050505;
-  --color-foreground: #ffffff;
-  --color-card: #101010;
-  --color-primary: #8b5cf6;
-  --color-accent: #3b82f6;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-background: #F6F6F6;
+  --color-foreground: #0C0B07;
+  --color-card: #ffffff;
+  --color-primary: #1E40AF; /* Deep Blue */
+  --color-accent: #3B82F6;  /* Bright Blue */
+  --font-sans: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 body {
@@ -16,21 +16,53 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphism Utility */
+/* Custom Utilities from Reference */
+.figma-grid-bg {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image:
+    linear-gradient(to right, rgba(12, 11, 7, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(12, 11, 7, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  transform: rotate(30deg);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border: 1px solid rgba(12, 11, 7, 0.05);
+  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.05);
 }
 
-.glass-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+.tech-card {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(12, 11, 7, 0.05);
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.gradient-text {
-  background: linear-gradient(to right, #a78bfa, #60a5fa);
+.tech-card:hover {
+  background: #ffffff;
+  border-color: rgba(59, 130, 246, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+}
+
+.badge-gradient-border {
+  background: linear-gradient(#F6F6F6, #F6F6F6) padding-box,
+  linear-gradient(to right, #1E40AF, #3B82F6, #60A5FA) border-box;
+  border: 1.5px solid transparent;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(to right, #1E40AF, #3B82F6);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }

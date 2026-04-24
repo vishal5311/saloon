@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       .select(`
         *, 
         visits(visit_date, service_id, notes), 
-        appointments(id, date, start_time, status, stylists(name))
+        appointments(id, date, start_time, status, stylists(name), services(name))
       `)
       .eq('mobile_number', normalizedPhone)
       .maybeSingle();
@@ -77,8 +77,8 @@ export async function POST(req: Request) {
       .filter((a: any) => a.status === 'scheduled' && a.date >= `${today}T00:00:00`)
       .map((a: any) => ({
         id: a.id,
-        date: a.date.split('T')[0],
-        time: a.start_time.split('T')[1].substring(0, 5),
+        date: a.date ? a.date.split('T')[0] : today,
+        time: a.start_time?.includes('T') ? a.start_time.split('T')[1].substring(0, 5) : (a.start_time || "scheduled time"),
         stylist: a.stylists?.name || "Unknown",
         service: a.services?.name || "Service"
       }));

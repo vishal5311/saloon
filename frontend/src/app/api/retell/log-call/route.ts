@@ -51,6 +51,7 @@ export async function POST(req: Request) {
     const { error } = await supabaseServer
       .from('conversations')
       .insert([{
+        tenant_id: 1,
         customer_id: customerId,
         incoming_text: transcript || '',
         transcript_summary: summary || '',

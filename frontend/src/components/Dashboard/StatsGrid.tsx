@@ -1,82 +1,75 @@
+"use client";
+
 import { motion } from "framer-motion";
-import { Users, CheckCircle2, TrendingUp, MessageSquare, Database } from "lucide-react";
-import { useState, useEffect } from "react";
-import { dataService } from "@/lib/data-service";
-import { supabase } from "@/lib/supabase";
+import { Users, Calendar, Clock, Activity, Phone } from "lucide-react";
 
-export default function StatsGrid() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState([
-    { label: "Total Customers", value: "0", change: "Live", trendingUp: true, icon: Users, key: 'customers' },
-    { label: "Today Bookings", value: "0", change: "Live", trendingUp: true, icon: CheckCircle2, key: 'today_bookings' },
-    { label: "Total Bookings", value: "0", change: "Live", trendingUp: true, icon: Database, key: 'total_bookings' },
-    { label: "Pending Appts", value: "0", change: "Live", trendingUp: true, icon: TrendingUp, key: 'pending' },
-    { label: "AI Calls Today", value: "0", change: "Live", trendingUp: true, icon: MessageSquare, key: 'ai_calls' },
-  ]);
-
-  async function fetchStats() {
-    try {
-      const data = await dataService.getDashboardStats();
-      
-      setStats(prev => prev.map(s => {
-        if (s.key === 'customers') return { ...s, value: `${data.totalCustomers}` };
-        if (s.key === 'today_bookings') return { ...s, value: `${data.todayBookings}` };
-        if (s.key === 'total_bookings') return { ...s, value: `${data.totalBookings}` };
-        if (s.key === 'pending') return { ...s, value: `${data.pendingAppointments}` };
-        if (s.key === 'ai_calls') return { ...s, value: `${data.aiCallsToday}` };
-        return s;
-      }));
-    } catch (e) {
-      console.error("Dashboard Stats Fetch Failed:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchStats();
-
-    // REALTIME: Subscribe to changes and refresh stats
-    const channels = [
-      supabase.channel('stats-apps').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, fetchStats).subscribe(),
-      supabase.channel('stats-cust').on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, fetchStats).subscribe(),
-      supabase.channel('stats-conv').on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, fetchStats).subscribe()
-    ];
-
-    return () => {
-      channels.forEach(c => supabase.removeChannel(c));
-    };
-  }, []);
+export default function StatsGrid({ stats }: { stats: any }) {
+  const items = [
+    { 
+      label: "Total Customers", 
+      value: stats?.totalCustomers || 0, 
+      icon: Users, 
+      color: "blue",
+      desc: "Infrastructure reach"
+    },
+    { 
+      label: "Today's Bookings", 
+      value: stats?.todayBookings || 0, 
+      icon: Calendar, 
+      color: "blue",
+      desc: "Daily transaction flow"
+    },
+    { 
+      label: "Scheduled", 
+      value: stats?.pendingAppointments || 0, 
+      icon: Activity, 
+      color: "blue",
+      desc: "Upcoming settlement"
+    },
+    { 
+      label: "Total Flow", 
+      value: stats?.totalBookings || 0, 
+      icon: Clock, 
+      color: "blue",
+      desc: "Historical processing"
+    },
+    { 
+      label: "AI Node Active", 
+      value: stats?.aiCallsToday || 0, 
+      icon: Phone, 
+      color: "blue",
+      desc: "Voice interactions"
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {stats.map((stat, i) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      {items.map((item, idx) => (
         <motion.div
-          key={stat.label}
+          key={item.label}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.1 }}
-          className="glass p-6 rounded-3xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300"
+          transition={{ delay: idx * 0.1 }}
+          className="tech-card p-6 rounded-[28px] relative overflow-hidden group"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <stat.icon className="w-12 h-12 text-purple-400" />
-          </div>
-          
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-purple-500/10 rounded-xl">
-              <stat.icon className="w-5 h-5 text-purple-400" />
-            </div>
-            <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${stat.trendingUp ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'}`}>
-              {stat.change}
+          <div className="flex justify-between items-start relative z-10 mb-4">
+            <div className={`p-3 rounded-xl bg-blue-50 text-blue-600 transition-all duration-500 group-hover:bg-blue-600 group-hover:text-white`}>
+              <item.icon className="w-5 h-5" />
             </div>
           </div>
           
-          <div>
-            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">{stat.label}</p>
-            <h3 className="text-2xl font-bold tracking-tight">
-              {loading ? <span className="animate-pulse opacity-50">...</span> : stat.value}
-            </h3>
+          <div className="relative z-10 space-y-1">
+            <h4 className="text-3xl font-semibold text-[#0C0B07] tracking-tighter">
+              {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
+            </h4>
+            <p className="text-[10px] font-bold text-[#0C0B07]/40 uppercase tracking-widest">{item.label}</p>
+            <p className="text-[10px] text-[#5E5E5E] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              {item.desc}
+            </p>
           </div>
+
+          {/* Decorative Elements */}
+          <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-all duration-500" />
         </motion.div>
       ))}
     </div>

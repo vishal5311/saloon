@@ -3,123 +3,162 @@
 import { motion } from "framer-motion";
 import StatsGrid from "@/components/Dashboard/StatsGrid";
 import BookingModal from "@/components/Dashboard/BookingModal";
-import { Search, Bell, Plus, MessageSquare, Bot, Database } from "lucide-react";
+import { Search, Bell, Plus, MessageSquare, Bot, Database, Sparkles, Activity, Users, Calendar, Phone } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { dataService } from "@/lib/data-service";
+import Link from "next/link";
 
 export default function Dashboard() {
+  const [stats, setStats] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchRecentactivity() {
-      const { data } = await supabase
+    async function loadData() {
+      setLoading(true);
+      const dashboardStats = await dataService.getDashboardStats();
+      setStats(dashboardStats);
+      
+      const { data: convs } = await supabase
         .from('conversations')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(5);
-      
-      if (data) setConversations(data);
+      if (convs) setConversations(convs);
+
+      const bookings = await dataService.getAppointmentsByDate(new Date());
+      setRecentBookings(bookings.slice(0, 5));
+      setLoading(false);
     }
+    loadData();
 
-    fetchRecentactivity();
-
+    // Subscribe to new bookings for real-time updates
     const channel = supabase
       .channel('dashboard-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, (payload) => {
-        setConversations(prev => [payload.new, ...prev].slice(0, 5));
-      })
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'appointments' },
+        (payload) => {
+          dataService.getAppointmentsByDate(new Date()).then(data => setRecentBookings(data.slice(0, 5)));
+          dataService.getDashboardStats().then(setStats);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'conversations' },
+        (payload) => {
+          setConversations(prev => [payload.new, ...prev].slice(0, 5));
+        }
+      )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-12 pb-12">
+    <div className="relative min-h-screen">
+      {/* Background Grid */}
+      <div className="figma-grid-bg opacity-40 fixed inset-0 pointer-events-none" />
+
       <BookingModal 
         isOpen={isBookingOpen} 
         onClose={() => setIsBookingOpen(false)} 
         onSuccess={() => {
-          // You could add a success toast here
+          dataService.getDashboardStats().then(setStats);
         }}
       />
 
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h2 className="text-4xl font-bold tracking-tight">Overview</h2>
-          <p className="text-purple-400 mt-2 font-medium flex items-center gap-2">
-            <span className="w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-            Supabase Live Node: Integrated
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input 
-              type="text" 
-              placeholder="Search data..." 
-              className="w-full bg-white/5 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-600 transition-all"
-            />
-          </div>
-          <button className="p-3 bg-white/5 border border-white/5 rounded-2xl text-zinc-400 hover:text-white transition-colors">
-            <Bell className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => setIsBookingOpen(true)}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-2xl text-sm font-bold transition-all transform hover:scale-[1.02] shadow-lg shadow-purple-600/20"
-          >
-            <Plus className="w-4 h-4" />
-            Booking
-          </button>
-        </div>
-      </div>
-
-      {/* Grid Content */}
-      <div className="space-y-12">
-        <StatsGrid />
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Main Activity Area */}
-          <div className="xl:col-span-2 space-y-8">
-            <motion.div 
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass p-8 rounded-[2.5rem] border border-white/5"
+      <div className="relative z-10 max-w-[1400px] mx-auto space-y-12 pb-20">
+        {/* Top Header */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+          <header className="flex flex-col gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full badge-gradient-border bg-white/50 backdrop-blur-sm w-fit mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#3B82F6]" />
+              <span className="text-[10px] font-bold tracking-widest uppercase text-[#0C0B07]/60">System Operational</span>
+            </div>
+            <h1 className="text-5xl font-semibold tracking-tight text-[#0C0B07]">
+              Welcome back, <span className="text-gradient-blue">Manager</span>
+            </h1>
+            <p className="text-[#5E5E5E] text-lg font-light max-w-xl leading-relaxed">
+              Your salon is currently processing AI-driven consultations and high-frequency bookings.
+            </p>
+          </header>
+          
+          <div className="flex items-center gap-4 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-80 group">
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#0C0B07]/30 group-focus-within:text-[#3B82F6] transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Search infrastructure..." 
+                className="w-full bg-white/50 border border-[#0C0B07]/5 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-[#3B82F6] transition-all backdrop-blur-sm"
+              />
+            </div>
+            <button className="p-4 bg-white/50 border border-[#0C0B07]/5 rounded-2xl text-[#0C0B07]/40 hover:text-[#0C0B07] transition-all backdrop-blur-sm hover:shadow-lg">
+              <Bell className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setIsBookingOpen(true)}
+              className="flex items-center gap-2 bg-[#0C0B07] hover:bg-black text-white px-8 py-4 rounded-2xl text-sm font-bold transition-all transform hover:scale-[1.02] shadow-xl shadow-black/10"
             >
-              <div className="flex justify-between items-center mb-8">
+              <Plus className="w-4 h-4" />
+              New Booking
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Section */}
+        <StatsGrid stats={stats} />
+
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          {/* Main Activity Area */}
+          <div className="xl:col-span-8 space-y-8">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="tech-card p-8 rounded-[2.5rem] relative overflow-hidden"
+            >
+              <div className="absolute inset-0 figma-grid-bg opacity-5 scale-50 pointer-events-none" />
+              <div className="flex justify-between items-center mb-10 relative z-10">
                 <div>
-                  <h3 className="text-xl font-bold">AI Interaction Hub</h3>
-                  <p className="text-sm text-zinc-500">Live monitoring via Supabase Real-time</p>
+                  <h3 className="text-xl font-semibold tracking-tight">AI Interaction Hub</h3>
+                  <p className="text-sm text-[#5E5E5E]">Real-time synchronization via Supabase Node</p>
                 </div>
-                <button className="text-sm font-bold text-purple-400 hover:text-purple-300">Open Logs</button>
+                <Link href="/calls" className="px-4 py-2 bg-[#0C0B07]/5 rounded-xl text-xs font-bold text-[#0C0B07] hover:bg-[#0C0B07]/10 transition-colors">
+                  Open Full Logs
+                </Link>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-4 relative z-10">
                 {conversations.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                    <div className="p-4 bg-white/5 rounded-3xl">
-                      <Bot className="w-8 h-8 text-purple-500" />
+                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+                    <div className="w-16 h-16 bg-[#F6F6F6] rounded-[2rem] flex items-center justify-center shadow-inner">
+                      <Bot className="w-8 h-8 text-[#0C0B07]/20" />
                     </div>
-                    <p className="text-zinc-500 max-w-xs text-sm italic">Waiting for messages... Conversation tokens will sync here live from Supabase.</p>
+                    <p className="text-[#5E5E5E] max-w-xs text-sm font-light leading-relaxed">Waiting for incoming traffic. Conversation tokens will stream here live from the AI Node.</p>
                   </div>
                 ) : (
                   conversations.map((msg, i) => (
-                    <div key={msg.id} className="flex gap-4 p-4 rounded-3xl bg-white/5 border border-white/5">
-                      <div className="w-10 h-10 rounded-2xl bg-purple-600/20 flex items-center justify-center text-purple-400">
+                    <motion.div 
+                      key={msg.id} 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                      className="flex gap-4 p-5 rounded-3xl bg-white/50 border border-[#0C0B07]/5 hover:border-blue-500/20 transition-all cursor-default"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                         <MessageSquare className="w-5 h-5" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <p className="font-bold text-sm">Customer Entry</p>
-                          <span className="text-[10px] text-zinc-500">Just now</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                          <p className="font-semibold text-sm text-[#0C0B07]">Customer Interaction</p>
+                          <span className="text-[10px] font-bold text-[#0C0B07]/30 uppercase tracking-widest">LIVE</span>
                         </div>
-                        <p className="text-sm text-zinc-400">"{msg.incoming_text}"</p>
+                        <p className="text-sm text-[#5E5E5E] leading-relaxed line-clamp-2">"{msg.incoming_text || msg.transcript_summary || "Call initiated..."}"</p>
                       </div>
-                    </div>
+                    </motion.div>
                   ))
                 )}
               </div>
@@ -127,29 +166,83 @@ export default function Dashboard() {
           </div>
 
           {/* Sidebar Area */}
-          <motion.div 
-            initial={{ opacity: 0, x: 15 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="glass p-8 rounded-[2.5rem] border border-white/5"
-          >
-            <div className="flex items-center gap-3 mb-8">
-              <Database className="w-5 h-5 text-purple-500" />
-              <h3 className="text-xl font-bold">Core Health</h3>
-            </div>
-            <div className="space-y-6">
-              <div className="p-6 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
-                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-1">Edge Status</p>
-                <p className="text-sm font-medium">Supabase Connection: ACTIVE</p>
+          <div className="xl:col-span-4 space-y-8">
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="tech-card p-8 rounded-[2.5rem]"
+            >
+              <div className="flex items-center justify-between mb-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-semibold tracking-tight">Recent Bookings</h3>
+                </div>
               </div>
-              <div className="p-6 rounded-3xl bg-purple-500/5 border border-purple-500/10">
-                <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">Real-time Sync</p>
-                <p className="text-sm font-medium">Postgres Listeners: LIVE</p>
+              <div className="space-y-4">
+                {recentBookings.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-[#5E5E5E] text-sm font-light">No bookings found for this period.</p>
+                  </div>
+                ) : (
+                  recentBookings.map((app, idx) => (
+                    <motion.div 
+                      key={app.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="p-5 rounded-2xl bg-white/50 border border-[#0C0B07]/5 space-y-2 hover:shadow-md transition-all group"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Booking ID: #{app.id}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      </div>
+                      <p className="font-semibold text-[15px] text-[#0C0B07] group-hover:text-blue-600 transition-colors">{app.customers?.full_name || "Unknown Customer"}</p>
+                      <div className="flex justify-between items-end">
+                        <p className="text-xs text-[#5E5E5E] font-light">{app.services?.name || "Premium Service"}</p>
+                        <p className="text-xs font-bold text-[#0C0B07]">{app.start_time?.split('T')[1]?.substring(0, 5) || "IST"}</p>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
               </div>
-            </div>
-          </motion.div>
+              <Link href="/appointments" className="block w-full text-center mt-8 text-sm font-bold text-blue-500 hover:text-blue-600 transition-colors">
+                Open Calendar Infrastructure
+              </Link>
+            </motion.div>
+
+            {/* System Health Card */}
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="tech-card p-8 rounded-[2.5rem] bg-[#0C0B07] text-white"
+            >
+              <div className="flex items-center gap-3 mb-10">
+                <Activity className="w-5 h-5 text-blue-400" />
+                <h3 className="text-xl font-semibold tracking-tight">System Health</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Automation Node</p>
+                    <p className="text-sm font-medium">Twilio & Google API</p>
+                  </div>
+                  <div className="text-xs font-mono text-green-400 bg-green-400/10 px-2 py-1 rounded tracking-tighter">UP</div>
+                </div>
+                <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">AI Voice Engine</p>
+                    <p className="text-sm font-medium">Retell Webhook</p>
+                  </div>
+                  <div className="text-xs font-mono text-green-400 bg-green-400/10 px-2 py-1 rounded tracking-tighter">LIVE</div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

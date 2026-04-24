@@ -56,6 +56,7 @@ export async function POST(req: Request) {
       const { data, error } = await supabaseServer
         .from('appointments')
         .insert([{
+          tenant_id: 1,
           customer_id: payload.customer_id,
           service_id: payload.service_id || null,
           stylist_id: payload.stylist_id || null,
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
       const { error } = await supabaseServer
         .from('conversations')
         .insert([{
+          tenant_id: 1,
           customer_id: payload.customer_id || null,
           incoming_text: payload.transcript || '',
           channel: 'Voice',

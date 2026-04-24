@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { combineDateAndTime, normalizeDate } from '@/lib/date-utils';
 import { normalizePhone } from '@/lib/phone-utils';
+import { sendWhatsAppConfirmation } from '@/lib/whatsapp';
+import { syncToGoogleCalendar } from '@/lib/calendar';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const args = body.args || body;
-    const { phone, date, time, service, stylist } = args;
+    const { phone, date, time, service, stylist, name: passedName } = args;
 
     if (!phone || !date || !time) {
       return Response.json(
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
     let customerId = null;
     const { data: existingCustomer } = await supabaseServer
       .from('customers')
-      .select('id, mobile_number')
+      .select('id, mobile_number, full_name')
       .eq('mobile_number', normalizedPhone)
       .maybeSingle();
 
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
         .from('customers')
         .insert([{
           tenant_id: 1,
-          full_name: 'Walk-in Customer',
+          full_name: passedName || 'Walk-in Customer',
           mobile_number: normalizedPhone,
           whatsapp_number: normalizedPhone,
           loyalty_points: 0,
@@ -188,6 +190,36 @@ export async function POST(request: Request) {
         message: "I'm having a little trouble saving that appointment. Could we try one more time?" 
       }, { status: 500, headers: corsHeaders });
     }
+
+    // Trigger Automations (Non-blocking)
+    const customerName = passedName || existingCustomer?.full_name || 'Walk-in Customer';
+    
+    // 1. WhatsApp Confirmation (Direct Twilio SDK)
+    (async () => {
+      try {
+        const twilioClient = require('twilio')(
+          process.env.TWILIO_ACCOUNT_SID,
+          process.env.TWILIO_AUTH_TOKEN
+        );
+        
+        await twilioClient.messages.create({
+          from: process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886',
+          to: `whatsapp:${normalizedPhone}`,
+          body: `Hi ${customerName} ✨\n\nYour appointment is confirmed.\n\nBooking ID: #${appointment.id}\nService: ${service || 'Hair Salon Service'}\nDate: ${normalizedDateStr}\nTime: ${time}\n\nAura Salon`
+        });
+        console.log(`[WhatsApp Success] Confirmation sent to ${normalizedPhone}`);
+      } catch (twErr) {
+        console.error('[WhatsApp Automation Failed]', twErr);
+      }
+    })();
+
+    // 2. Calendar Sync
+    syncToGoogleCalendar({
+      customer_name: customerName,
+      service: service || 'Hair Salon Service',
+      start_time: startTimeFull,
+      end_time: endTimeFull
+    }).catch(err => console.error('[Calendar Automation Failed]', err));
 
     return Response.json({ 
       success: true, 

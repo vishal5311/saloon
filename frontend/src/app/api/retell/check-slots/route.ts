@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeDate } from '@/lib/date-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
@@ -32,15 +33,14 @@ export async function POST(req: Request) {
     const args = body.args || body;
     const { date } = args;
     
-    if (!date) return NextResponse.json({ error: "Date required" }, { status: 400, headers: corsHeaders });
-
+    const normalizedDate = normalizeDate(date);
     const { data: booked } = await supabaseServer
       .from('appointments')
       .select('start_time')
-      .eq('date', date)
+      .eq('date', `${normalizedDate}T00:00:00`)
       .not('status', 'eq', 'cancelled');
 
-    const bookedTimes = booked?.map(b => b.start_time?.substring(0, 5)) || [];
+    const bookedTimes = booked?.map(b => b.start_time?.split('T')[1]?.substring(0, 5)) || [];
     const availableSlots = ALL_SLOTS.filter(s => !bookedTimes.includes(s));
 
     return NextResponse.json({ 
