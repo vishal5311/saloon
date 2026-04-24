@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getToday } from '@/lib/date-utils';
+import { normalizePhone } from '@/lib/phone-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
@@ -29,10 +30,16 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const args = body.args || body;
-    const phone = args.phone || args.caller_phone;
     
-    if (!phone) {
-      return NextResponse.json({ error: "Phone number required" }, { status: 400, headers: corsHeaders });
+    // Retell passes phone in multiple potential fields depending on config
+    const rawPhone = args.phone || args.caller_phone || args.from_number || args.caller_number || "";
+    const normalizedPhone = normalizePhone(rawPhone);
+
+    console.log("Incoming raw caller:", rawPhone);
+    console.log("Normalized caller:", normalizedPhone);
+    
+    if (!normalizedPhone || normalizedPhone.length < 5) {
+      return NextResponse.json({ error: "Valid phone number required" }, { status: 400, headers: corsHeaders });
     }
 
     const today = getToday();
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
         visits(visit_date, service_id, notes), 
         appointments(id, date, start_time, status, stylists(name))
       `)
-      .eq('mobile_number', phone)
+      .eq('mobile_number', normalizedPhone)
       .maybeSingle();
 
     if (error) {

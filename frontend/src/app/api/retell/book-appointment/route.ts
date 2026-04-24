@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { combineDateAndTime, normalizeDate } from '@/lib/date-utils';
+import { normalizePhone } from '@/lib/phone-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
@@ -38,7 +39,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const normalizedPhone = String(phone).trim();
+    const normalizedPhone = normalizePhone(phone);
+    console.log("Booking raw caller:", phone);
+    console.log("Booking normalized caller:", normalizedPhone);
+    
     const normalizedDateStr = normalizeDate(date);
 
     // 4. Find/create customer by phone

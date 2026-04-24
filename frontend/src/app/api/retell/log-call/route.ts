@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { normalizePhone } from '@/lib/phone-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
@@ -33,11 +34,15 @@ export async function POST(req: Request) {
     // Identify customer
     let customerId = null;
     if (phone) {
+      const normalizedPhone = normalizePhone(phone);
+      console.log("Logging raw caller:", phone);
+      console.log("Logging normalized caller:", normalizedPhone);
+
       const { data: customer } = await supabaseServer
         .from('customers')
         .select('id')
-        .eq('mobile_number', phone)
-        .single();
+        .eq('mobile_number', normalizedPhone)
+        .maybeSingle();
       customerId = customer?.id || null;
     }
 
