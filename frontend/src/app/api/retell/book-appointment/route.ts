@@ -23,7 +23,8 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { phone, full_name, date, time, service, stylist_id } = body;
+    const args = body.args || body;
+    const { phone, full_name, date, time, service, stylist_id } = args;
     const service_id = service;
 
     if (!phone || !date || !time) {

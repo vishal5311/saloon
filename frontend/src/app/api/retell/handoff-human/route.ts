@@ -22,7 +22,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { phone, reason } = await req.json();
+    const body = await req.json();
+    const args = body.args || body;
+    const { phone, reason } = args;
 
     let customerId = null;
 

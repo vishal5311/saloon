@@ -22,7 +22,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { phone } = await req.json();
+    const body = await req.json();
+    const args = body.args || body;
+    const { phone } = args;
     
     if (!phone) {
       return NextResponse.json({ error: "Phone number required" }, { status: 400, headers: corsHeaders });

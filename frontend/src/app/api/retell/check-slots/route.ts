@@ -24,7 +24,9 @@ const ALL_SLOTS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"
 
 export async function POST(req: Request) {
   try {
-    const { date } = await req.json();
+    const body = await req.json();
+    const args = body.args || body;
+    const { date } = args;
     
     if (!date) return NextResponse.json({ error: "Date required" }, { status: 400, headers: corsHeaders });
 
