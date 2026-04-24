@@ -52,19 +52,29 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialTime }
     if (isOpen) fetchData();
   }, [isOpen]);
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setError(null);
     
-    const { error } = await supabase
+    const { error: appErr } = await supabase
       .from('appointments')
       .insert([newApp]);
 
-    if (!error) {
+    if (!appErr) {
       onSuccess?.();
       onClose();
     } else {
-      alert("Error booking appointment: " + error.message);
+      let msg = appErr.message;
+      if (msg.includes("duplicate key value") || msg.includes("already have an appointment")) {
+        const customerName = customers.find(c => c.id === newApp.customer_id)?.full_name || "Customer";
+        const time = newApp.start_time.substring(0, 5);
+        msg = `${customerName} already has a booking at ${time}.`;
+      }
+      setError(msg);
+      setTimeout(() => setError(null), 5000);
     }
     setIsSaving(false);
   };
@@ -92,6 +102,20 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialTime }
                 <X className="w-5 h-5 text-zinc-500" />
               </button>
             </div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs font-bold flex items-center gap-3 overflow-hidden"
+                >
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <form onSubmit={handleBooking} className="space-y-4">
               <div>

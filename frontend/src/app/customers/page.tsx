@@ -15,7 +15,7 @@ export default function CustomersPage() {
   async function fetchCustomers() {
     const { data, error } = await supabase
       .from('customers')
-      .select('*')
+      .select('*, appointments(id, start_time)')
       .order('created_at', { ascending: false });
 
     if (!error) {
@@ -183,43 +183,51 @@ export default function CustomersPage() {
               <tr>
                 <th className="px-8 py-4">Customer</th>
                 <th className="px-8 py-4 text-center">Loyalty Pts</th>
-                <th className="px-8 py-4">Total Spent</th>
-                <th className="px-8 py-4">City</th>
+                <th className="px-8 py-4">Total Bookings</th>
+                <th className="px-8 py-4">Last Visit</th>
                 <th className="px-8 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {customers.map((customer, i) => (
-                <motion.tr 
-                  key={customer.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="hover:bg-white/[0.02] transition-colors group"
-                >
-                  <td className="px-8 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500/20 to-blue-500/20 flex items-center justify-center text-sm font-bold text-purple-400">
-                        {customer.full_name?.charAt(0) || "U"}
+              {customers.map((customer, i) => {
+                const totalBookings = customer.appointments?.length || 0;
+                const lastVisit = customer.appointments?.length > 0 
+                  ? new Date(Math.max(...customer.appointments.map((a: any) => new Date(a.start_time).getTime())))
+                    .toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                  : "Never";
+
+                return (
+                  <motion.tr 
+                    key={customer.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="hover:bg-white/[0.02] transition-colors group"
+                  >
+                    <td className="px-8 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500/20 to-blue-500/20 flex items-center justify-center text-sm font-bold text-purple-400">
+                          {customer.full_name?.charAt(0) || "U"}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{customer.full_name}</p>
+                          <p className="text-xs text-zinc-500 flex items-center gap-1">
+                            <Phone className="w-3 h-3" /> {customer.mobile_number}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-sm">{customer.full_name}</p>
-                        <p className="text-xs text-zinc-500 flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {customer.mobile_number}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-4 text-center font-medium text-sm text-yellow-500/80">{customer.loyalty_points || 0}</td>
-                  <td className="px-8 py-4 font-bold text-sm text-purple-400">₹{customer.total_spent || 0}</td>
-                  <td className="px-8 py-4 text-sm text-zinc-400">{customer.city || "N/A"}</td>
-                  <td className="px-8 py-4 text-right">
-                    <button className="p-2 hover:bg-white/5 rounded-lg transition-colors text-zinc-500">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </td>
-                </motion.tr>
-              ))}
+                    </td>
+                    <td className="px-8 py-4 text-center font-medium text-sm text-yellow-500/80">{customer.loyalty_points || 0}</td>
+                    <td className="px-8 py-4 font-bold text-sm text-purple-400">{totalBookings}</td>
+                    <td className="px-8 py-4 text-sm text-zinc-400">{lastVisit}</td>
+                    <td className="px-8 py-4 text-right">
+                      <button className="p-2 hover:bg-white/5 rounded-lg transition-colors text-zinc-500">
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </motion.tr>
+                );
+              })}
             </tbody>
           </table>
         )}
