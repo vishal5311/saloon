@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ 
         exists: false,
         today,
-        message: `New customer calling from ${phone}. Today is ${today}. Warmly welcome them.` 
+        message: `New customer calling from ${normalizedPhone}. Today is ${today}. Warmly welcome them.` 
       }, { headers: corsHeaders });
     }
 
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       : `They are a registered customer but haven't visited recently.`;
 
     const upcomingContext = upcoming.length > 0
-      ? `They ALREADY HAVE an upcoming booking: ${upcoming.map(u => `${u.service} on ${u.date} at ${u.time}`).join(', ')}.`
+      ? `They ALREADY HAVE an upcoming booking: ${upcoming.map((u: any) => `${u.service} on ${u.date} at ${u.time}`).join(', ')}.`
       : `They have no upcoming bookings.`;
 
     return NextResponse.json({
