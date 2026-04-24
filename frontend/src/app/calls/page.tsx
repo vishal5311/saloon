@@ -19,6 +19,7 @@ export default function AICallLogsPage() {
         *,
         customers(full_name, mobile_number)
       `)
+      .eq('tenant_id', 1)
       .order('created_at', { ascending: false });
 
     if (!error && data) {

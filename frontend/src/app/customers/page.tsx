@@ -16,6 +16,7 @@ export default function CustomersPage() {
     const { data, error } = await supabase
       .from('customers')
       .select('*, appointments(id, start_time)')
+      .eq('tenant_id', 1)
       .order('created_at', { ascending: false });
 
     if (!error) {

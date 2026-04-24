@@ -21,6 +21,7 @@ export default function AppointmentsPage() {
     const { data } = await supabase
       .from('appointments')
       .select('*, customers(full_name), services(name), stylists(full_name)')
+      .eq('tenant_id', 1)
       .eq('date', `${dateStr}T00:00:00`)
       .order('start_time', { ascending: true });
 

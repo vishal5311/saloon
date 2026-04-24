@@ -21,39 +21,51 @@ export default function StatsGrid() {
 
   useEffect(() => {
     async function fetchStats() {
-      const today = new Date().toISOString().split('T')[0];
-      const todayTimestamp = `${today}T00:00:00`;
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const todayTimestamp = `${today}T00:00:00`;
 
-      // 1. Fetch Customers Count
-      const { count: customerCount } = await supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true });
+        // 1. Fetch Customers Count
+        const { count: customerCount, error: custErr } = await supabase
+          .from('customers')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', 1);
+        if (custErr) console.error("Stats Fetch Error (Customers):", custErr);
 
-      // 2. Fetch Today's Bookings
-      const { count: todayBookings } = await supabase
-        .from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .eq('date', todayTimestamp);
+        // 2. Fetch Today's Bookings
+        const { count: todayBookings, error: appTodayErr } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', 1)
+          .eq('date', todayTimestamp);
+        if (appTodayErr) console.error("Stats Fetch Error (Today Bookings):", appTodayErr);
 
-      // 3. Fetch Pending (Scheduled) Appointments
-      const { count: pendingCount } = await supabase
-        .from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'scheduled');
+        // 3. Fetch Pending (Scheduled) Appointments
+        const { count: pendingCount, error: pendErr } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', 1)
+          .eq('status', 'scheduled');
+        if (pendErr) console.error("Stats Fetch Error (Pending):", pendErr);
 
-      // 4. Fetch AI Calls Today
-      const { count: aiCallsCount } = await supabase
-        .from('conversations')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', todayTimestamp);
+        // 4. Fetch AI Calls Today
+        const { count: aiCallsCount, error: callErr } = await supabase
+          .from('conversations')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', 1)
+          .gte('created_at', todayTimestamp);
+        if (callErr) console.error("Stats Fetch Error (Calls):", callErr);
 
-      setStats(prev => prev.map(s => {
-        if (s.key === 'customers') return { ...s, value: `${customerCount || 0}` };
-        if (s.key === 'today_bookings') return { ...s, value: `${todayBookings || 0}` };
-        if (s.key === 'pending') return { ...s, value: `${pendingCount || 0}` };
-        if (s.key === 'ai_calls') return { ...s, value: `${aiCallsCount || 0}` };
-        return s;
-      }));
+        setStats(prev => prev.map(s => {
+          if (s.key === 'customers') return { ...s, value: `${customerCount || 0}` };
+          if (s.key === 'today_bookings') return { ...s, value: `${todayBookings || 0}` };
+          if (s.key === 'pending') return { ...s, value: `${pendingCount || 0}` };
+          if (s.key === 'ai_calls') return { ...s, value: `${aiCallsCount || 0}` };
+          return s;
+        }));
+      } catch (e) {
+        console.error("Critical Dashboard Sync Error:", e);
+      }
     }
 
     fetchStats();
