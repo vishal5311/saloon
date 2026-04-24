@@ -60,15 +60,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to create or find customer" }, { status: 500, headers: corsHeaders });
     }
 
-    // 2. Book Appointment
+    // 2. Resolve Service ID
+    let resolvedServiceId = null;
+    if (service) {
+      const { data: serviceData } = await supabaseServer
+        .from('services')
+        .select('id')
+        .ilike('name', service)
+        .limit(1)
+        .single();
+      
+      if (serviceData) {
+        resolvedServiceId = serviceData.id;
+      } else {
+        // Fallback: Create the service if not found
+        const { data: newService, error: srvErr } = await supabaseServer
+          .from('services')
+          .insert([{ name: service, price: 0, duration: 30 }])
+          .select('id')
+          .single();
+        if (!srvErr && newService) {
+          resolvedServiceId = newService.id;
+        } else {
+          return NextResponse.json({ error: `Service '${service}' not found and could not be created.` }, { status: 400, headers: corsHeaders });
+        }
+      }
+    }
+
+    // 3. Resolve Stylist ID (Optional, if provided)
+    let resolvedStylistId = null;
+    if (stylist_id && typeof stylist_id === 'string' && isNaN(Number(stylist_id))) {
+      const { data: stylistData } = await supabaseServer
+        .from('stylists')
+        .select('id')
+        .ilike('name', stylist_id)
+        .limit(1)
+        .single();
+      if (stylistData) resolvedStylistId = stylistData.id;
+    } else if (stylist_id) {
+      resolvedStylistId = stylist_id;
+    }
+
+    // 4. Book Appointment
     // appointments columns: id, customer_id, service_id, stylist_id, date, start_time, end_time, status, booked_by_ai
     const startTime = time.includes(':') ? time : `${time}:00:00`;
     const { data: appointment, error: appErr } = await supabaseServer
       .from('appointments')
       .insert([{
         customer_id: customer.id,
-        service_id: service_id || null,
-        stylist_id: stylist_id || null,
+        service_id: resolvedServiceId,
+        stylist_id: resolvedStylistId,
         date,
         start_time: startTime,
         booked_by_ai: true,
