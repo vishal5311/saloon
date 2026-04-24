@@ -12,14 +12,16 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
 
   async function fetchAppointments() {
-    const today = new Date().toISOString().split('T')[0];
+    setLoading(true);
+    const dateStr = selectedDate.toISOString().split('T')[0];
     const { data } = await supabase
       .from('appointments')
       .select('*, customers(full_name), services(name), stylists(full_name)')
-      .eq('date', today)
+      .eq('date', `${dateStr}T00:00:00`)
       .order('start_time', { ascending: true });
 
     if (data) setAppointments(data);
@@ -39,7 +41,7 @@ export default function AppointmentsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [selectedDate]);
 
   return (
     <div className="space-y-8">
@@ -72,10 +74,30 @@ export default function AppointmentsPage() {
         {/* Date Selector Mini Calendar */}
         <div className="glass p-6 rounded-3xl h-fit">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-bold">April 2026</h3>
+            <h3 className="font-bold">
+              {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </h3>
             <div className="flex gap-2">
-              <button className="p-1 hover:bg-white/5 rounded-lg"><ChevronLeft className="w-4 h-4" /></button>
-              <button className="p-1 hover:bg-white/5 rounded-lg"><ChevronRight className="w-4 h-4" /></button>
+              <button 
+                onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setMonth(d.getMonth() - 1);
+                  setSelectedDate(d);
+                }}
+                className="p-1 hover:bg-white/5 rounded-lg"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setMonth(d.getMonth() + 1);
+                  setSelectedDate(d);
+                }}
+                className="p-1 hover:bg-white/5 rounded-lg"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
           <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-bold text-zinc-500 mb-4 uppercase tracking-widest">
@@ -85,7 +107,12 @@ export default function AppointmentsPage() {
             {Array.from({ length: 30 }).map((_, i) => (
               <button 
                 key={i} 
-                className={`py-2 text-sm rounded-lg transition-colors ${i === 21 ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'hover:bg-white/5 text-zinc-400'}`}
+                onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setDate(i + 1);
+                  setSelectedDate(d);
+                }}
+                className={`py-2 text-sm rounded-lg transition-colors ${selectedDate.getDate() === i + 1 ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'hover:bg-white/5 text-zinc-400'}`}
               >
                 {i + 1}
               </button>
@@ -97,8 +124,12 @@ export default function AppointmentsPage() {
         <div className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between glass p-4 rounded-2xl mb-4">
             <div className="flex items-center gap-4">
-              <h4 className="text-lg font-bold">Wednesday, April 22</h4>
-              <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-md uppercase">Today</span>
+              <h4 className="text-lg font-bold">
+                {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </h4>
+              {selectedDate.toDateString() === new Date().toDateString() && (
+                <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-md uppercase">Today</span>
+              )}
             </div>
           </div>
 
@@ -107,7 +138,7 @@ export default function AppointmentsPage() {
           ) : (
             <div className="space-y-3">
               {timeSlots.map((time, i) => {
-                const app = appointments.find(a => a.start_time?.startsWith(time));
+                const app = appointments.find(a => a.start_time?.includes(time));
                 return (
                   <div key={time} className="flex gap-4 group">
                     <div className="w-16 pt-2 text-sm text-zinc-500 font-medium">{time}</div>
@@ -131,7 +162,7 @@ export default function AppointmentsPage() {
                                 <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[8px] font-bold rounded border border-purple-500/30 uppercase tracking-tighter">AI Booked</span>
                               )}
                             </div>
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{app.start_time?.substring(0, 5)} - 1h</span>
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{app.start_time?.split('T')[1]?.substring(0, 5)}</span>
                           </div>
                           <div className="flex gap-4">
                             <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -166,6 +197,7 @@ export default function AppointmentsPage() {
     </div>
   );
 }
+
 
 
 
