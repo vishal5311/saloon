@@ -37,14 +37,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const normalizedPhone = String(phone).trim();
+
     // 4. Find/create customer by phone
     let customerId = null;
     const { data: existingCustomer } = await supabaseServer
       .from('customers')
-      .select('id')
-      .eq('tenant_id', 1)
-      .eq('mobile_number', phone)
-      .limit(1)
+      .select('id, mobile_number')
+      .eq('mobile_number', normalizedPhone)
       .maybeSingle();
 
     if (existingCustomer) {
@@ -55,8 +55,8 @@ export async function POST(request: Request) {
         .insert([{
           tenant_id: 1,
           full_name: 'Walk-in Customer',
-          mobile_number: phone,
-          whatsapp_number: phone,
+          mobile_number: normalizedPhone,
+          whatsapp_number: normalizedPhone,
           loyalty_points: 0,
           total_spent: 0
         }])
