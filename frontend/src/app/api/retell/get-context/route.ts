@@ -58,7 +58,11 @@ export async function POST(req: Request) {
       loyalty_points: customer.loyalty_points,
       last_visit: lastVisit?.visit_date || "N/A",
       favorite_stylist: lastCompletedAppointment?.stylist_id || null,
-      context_prompt: `The caller is ${customer.full_name}. They have ${customer.loyalty_points || 0} loyalty points. Their last visit was ${lastVisit?.visit_date || 'never'}. Be friendly and ask if they want to book their usual service.`
+      context_prompt: `The caller is ${customer.full_name}. They have ${customer.loyalty_points || 0} loyalty points. Their last visit was ${lastVisit?.visit_date || 'never'}. Be friendly and ask if they want to book their usual service.
+IMPORTANT RULES:
+1. Always use current real date and calculate tomorrow correctly. Never use outdated example dates.
+2. Only confirm booking after book_appointment returns success=true.
+3. If booking fails, apologize and retry or escalate. Never fake confirmation.`
     }, { headers: corsHeaders });
 
   } catch (err: any) {
