@@ -108,13 +108,15 @@ export async function POST(req: Request) {
     }
 
     // 6. DUPLICATE PREVENTION
-    const startTime = time.includes(':') ? time : `${time}:00`;
+    const startTimeStr = time.includes(':') ? time : `${time}:00`;
+    const startTimeFull = `${date}T${startTimeStr}:00`;
+
     const { data: duplicate } = await supabaseServer
       .from('appointments')
       .select('id')
       .eq('customer_id', customerId)
-      .eq('date', date)
-      .eq('start_time', startTime)
+      .eq('date', `${date}T00:00:00`)
+      .eq('start_time', startTimeFull)
       .eq('status', 'scheduled')
       .limit(1)
       .single();
@@ -124,13 +126,15 @@ export async function POST(req: Request) {
     }
 
     // 4. APPOINTMENT INSERT
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(hours, minutes || 0, 0, 0);
-    startDate.setMinutes(startDate.getMinutes() + durationMinutes);
-    const endHours = String(startDate.getHours()).padStart(2, '0');
-    const endMinutes = String(startDate.getMinutes()).padStart(2, '0');
-    const endTime = `${endHours}:${endMinutes}:00`;
+    const [hours, minutes] = startTimeStr.split(':').map(Number);
+    const endDate = new Date(`${date}T00:00:00`);
+    endDate.setHours(hours, minutes + durationMinutes, 0, 0);
+    
+    const endHours = String(endDate.getHours()).padStart(2, '0');
+    const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+    const endTimeFull = `${date}T${endHours}:${endMinutes}:00`;
+
+    const appointmentDate = `${date}T00:00:00`;
 
     const { data: appointment, error: appErr } = await supabaseServer
       .from('appointments')
@@ -139,17 +143,18 @@ export async function POST(req: Request) {
         customer_id: customerId,
         stylist_id: resolvedStylistId,
         service_id: resolvedServiceId,
-        date: date,
-        start_time: startTime,
-        end_time: endTime,
+        date: appointmentDate,
+        start_time: startTimeFull,
+        end_time: endTimeFull,
         status: 'scheduled',
+        reminder_sent: false,
         booked_by_ai: true
       }])
       .select('id')
       .single();
 
     if (appErr || !appointment) {
-      return NextResponse.json({ success: false, message: "Unable to complete booking right now." }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ success: false, message: appErr?.message || "Failed to insert appointment into database." }, { status: 500, headers: corsHeaders });
     }
 
     // 10. RETELL COMPATIBILITY
@@ -161,6 +166,6 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     // 7. ERROR HANDLING
-    return NextResponse.json({ success: false, message: "Unable to complete booking right now." }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ success: false, message: err.message || "An unexpected error occurred." }, { status: 500, headers: corsHeaders });
   }
 }
