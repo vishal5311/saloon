@@ -136,25 +136,40 @@ export async function POST(req: Request) {
 
     const appointmentDate = `${date}T00:00:00`;
 
+    const insertData = {
+      tenant_id: 1,
+      customer_id: customerId,
+      stylist_id: resolvedStylistId,
+      service_id: resolvedServiceId,
+      date: appointmentDate,
+      start_time: startTimeFull,
+      end_time: endTimeFull,
+      status: 'scheduled',
+      reminder_sent: false,
+      booked_by_ai: true
+    };
+
+    console.log("Payload:", body);
+    console.log("customerId:", customerId);
+    console.log("serviceId:", resolvedServiceId);
+    console.log("stylistId:", resolvedStylistId);
+    console.log("Insert object:", insertData);
+
     const { data: appointment, error: appErr } = await supabaseServer
       .from('appointments')
-      .insert([{
-        tenant_id: 1,
-        customer_id: customerId,
-        stylist_id: resolvedStylistId,
-        service_id: resolvedServiceId,
-        date: appointmentDate,
-        start_time: startTimeFull,
-        end_time: endTimeFull,
-        status: 'scheduled',
-        reminder_sent: false,
-        booked_by_ai: true
-      }])
+      .insert([insertData])
       .select('id')
       .single();
 
     if (appErr || !appointment) {
-      return NextResponse.json({ success: false, message: appErr?.message || "Failed to insert appointment into database." }, { status: 500, headers: corsHeaders });
+      console.error("SUPABASE INSERT ERROR:", appErr);
+      return NextResponse.json({ 
+        success: false, 
+        message: appErr?.message || "Failed to insert appointment into database.",
+        details: appErr?.details || null,
+        hint: appErr?.hint || null,
+        code: appErr?.code || null
+      }, { status: 500, headers: corsHeaders });
     }
 
     // 10. RETELL COMPATIBILITY
@@ -166,6 +181,14 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     // 7. ERROR HANDLING
-    return NextResponse.json({ success: false, message: err.message || "An unexpected error occurred." }, { status: 500, headers: corsHeaders });
+    console.error("BOOKING ERROR:", err);
+    return NextResponse.json({ 
+      success: false, 
+      message: err.message || "Unknown error",
+      details: err.details || null,
+      hint: err.hint || null,
+      code: err.code || null,
+      stack: err.stack || null
+    }, { status: 500, headers: corsHeaders });
   }
 }
