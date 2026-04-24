@@ -28,107 +28,139 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const args = body.args || body;
-    const { phone, full_name, date, time, service, stylist_id } = args;
-    const service_id = service;
+    const { phone, full_name, date, time, service, stylist } = args;
 
     if (!phone || !date || !time) {
       return NextResponse.json(
-        { error: "phone, date, and time are required" },
+        { success: false, message: "Phone, date, and time are required." },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // 1. Ensure Customer Exists
-    let { data: customer } = await supabaseServer
+    // 1. CUSTOMER LOOKUP / CREATE
+    let customerId = null;
+    const { data: existingCustomer } = await supabaseServer
       .from('customers')
       .select('id')
+      .eq('tenant_id', 1)
       .eq('mobile_number', phone)
+      .limit(1)
       .single();
 
-    if (!customer) {
-      const { data: newCust, error: custErr } = await supabaseServer
+    if (existingCustomer) {
+      customerId = existingCustomer.id;
+    } else {
+      const { data: newCustomer, error: custErr } = await supabaseServer
         .from('customers')
-        .insert([{ full_name: full_name || 'Walk-in Customer', mobile_number: phone }])
-        .select()
+        .insert([{
+          tenant_id: 1,
+          full_name: full_name || 'Walk-in Customer',
+          mobile_number: phone,
+          whatsapp_number: phone,
+          loyalty_points: 0,
+          total_spent: 0
+        }])
+        .select('id')
         .single();
       
-      if (custErr) throw custErr;
-      customer = newCust;
+      if (custErr || !newCustomer) {
+        return NextResponse.json({ success: false, message: "Unable to complete booking right now." }, { status: 500, headers: corsHeaders });
+      }
+      customerId = newCustomer.id;
     }
 
-    if (!customer) {
-      return NextResponse.json({ error: "Failed to create or find customer" }, { status: 500, headers: corsHeaders });
-    }
-
-    // 2. Resolve Service ID
+    // 2. SERVICE LOOKUP (CASE INSENSITIVE)
     let resolvedServiceId = null;
+    let durationMinutes = 30; // default
     if (service) {
       const { data: serviceData } = await supabaseServer
         .from('services')
-        .select('id')
-        .ilike('name', service)
+        .select('id, duration')
+        .eq('tenant_id', 1)
+        .eq('active', true)
+        .ilike('name', service.trim())
         .limit(1)
         .single();
       
       if (serviceData) {
         resolvedServiceId = serviceData.id;
+        if (serviceData.duration) durationMinutes = serviceData.duration;
       } else {
-        // Fallback: Create the service if not found
-        const { data: newService, error: srvErr } = await supabaseServer
-          .from('services')
-          .insert([{ name: service, price: 0, duration: 30 }])
-          .select('id')
-          .single();
-        if (!srvErr && newService) {
-          resolvedServiceId = newService.id;
-        } else {
-          return NextResponse.json({ error: `Service '${service}' not found and could not be created.` }, { status: 400, headers: corsHeaders });
-        }
+        return NextResponse.json({ success: false, message: "Requested service not available." }, { status: 400, headers: corsHeaders });
       }
     }
 
-    // 3. Resolve Stylist ID (Optional, if provided)
+    // 3. STYLIST LOOKUP (OPTIONAL)
     let resolvedStylistId = null;
-    if (stylist_id && typeof stylist_id === 'string' && isNaN(Number(stylist_id))) {
+    if (stylist) {
       const { data: stylistData } = await supabaseServer
         .from('stylists')
         .select('id')
-        .ilike('name', stylist_id)
+        .eq('tenant_id', 1)
+        .eq('active', true)
+        .ilike('name', stylist.trim())
         .limit(1)
         .single();
-      if (stylistData) resolvedStylistId = stylistData.id;
-    } else if (stylist_id) {
-      resolvedStylistId = stylist_id;
+      
+      if (stylistData) {
+        resolvedStylistId = stylistData.id;
+      }
     }
 
-    // 4. Book Appointment
-    // appointments columns: id, customer_id, service_id, stylist_id, date, start_time, end_time, status, booked_by_ai
-    const startTime = time.includes(':') ? time : `${time}:00:00`;
+    // 6. DUPLICATE PREVENTION
+    const startTime = time.includes(':') ? time : `${time}:00`;
+    const { data: duplicate } = await supabaseServer
+      .from('appointments')
+      .select('id')
+      .eq('customer_id', customerId)
+      .eq('date', date)
+      .eq('start_time', startTime)
+      .eq('status', 'scheduled')
+      .limit(1)
+      .single();
+
+    if (duplicate) {
+      return NextResponse.json({ success: false, message: "You already have an appointment at this time." }, { status: 400, headers: corsHeaders });
+    }
+
+    // 4. APPOINTMENT INSERT
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes || 0, 0, 0);
+    startDate.setMinutes(startDate.getMinutes() + durationMinutes);
+    const endHours = String(startDate.getHours()).padStart(2, '0');
+    const endMinutes = String(startDate.getMinutes()).padStart(2, '0');
+    const endTime = `${endHours}:${endMinutes}:00`;
+
     const { data: appointment, error: appErr } = await supabaseServer
       .from('appointments')
       .insert([{
-        customer_id: customer.id,
-        service_id: resolvedServiceId,
+        tenant_id: 1,
+        customer_id: customerId,
         stylist_id: resolvedStylistId,
-        date,
+        service_id: resolvedServiceId,
+        date: date,
         start_time: startTime,
-        booked_by_ai: true,
-        status: 'scheduled'
+        end_time: endTime,
+        status: 'scheduled',
+        booked_by_ai: true
       }])
-      .select()
+      .select('id')
       .single();
 
     if (appErr || !appointment) {
-      return NextResponse.json({ error: appErr?.message || "Failed to book appointment" }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ success: false, message: "Unable to complete booking right now." }, { status: 500, headers: corsHeaders });
     }
 
+    // 10. RETELL COMPATIBILITY
     return NextResponse.json({ 
       success: true, 
-      appointment_id: appointment.id,
-      message: `Great! I've booked your appointment for ${date} at ${time}. We look forward to seeing you!`
+      booking_id: appointment.id,
+      message: "Appointment booked successfully."
     }, { headers: corsHeaders });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders });
+    // 7. ERROR HANDLING
+    return NextResponse.json({ success: false, message: "Unable to complete booking right now." }, { status: 500, headers: corsHeaders });
   }
 }
