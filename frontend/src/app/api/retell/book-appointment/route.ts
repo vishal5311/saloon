@@ -24,20 +24,20 @@ export async function GET() {
   );
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
     const args = body.args || body;
-    const { phone, full_name, date, time, service, stylist } = args;
+    const { phone, date, time, service, stylist } = args;
 
     if (!phone || !date || !time) {
-      return NextResponse.json(
+      return Response.json(
         { success: false, message: "Phone, date, and time are required." },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    // 1. CUSTOMER LOOKUP / CREATE
+    // 4. Find/create customer by phone
     let customerId = null;
     const { data: existingCustomer } = await supabaseServer
       .from('customers')
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         .from('customers')
         .insert([{
           tenant_id: 1,
-          full_name: full_name || 'Walk-in Customer',
+          full_name: 'Walk-in Customer',
           mobile_number: phone,
           whatsapp_number: phone,
           loyalty_points: 0,
@@ -64,12 +64,12 @@ export async function POST(req: Request) {
         .single();
       
       if (custErr || !newCustomer) {
-        return NextResponse.json({ success: false, message: "Unable to complete booking right now." }, { status: 500, headers: corsHeaders });
+        throw new Error(custErr?.message || "Failed to create customer");
       }
       customerId = newCustomer.id;
     }
 
-    // 2. SERVICE LOOKUP (CASE INSENSITIVE)
+    // 5. Find service by case-insensitive name
     let resolvedServiceId = null;
     let durationMinutes = 30; // default
     if (service) {
@@ -86,11 +86,11 @@ export async function POST(req: Request) {
         resolvedServiceId = serviceData.id;
         if (serviceData.duration) durationMinutes = serviceData.duration;
       } else {
-        return NextResponse.json({ success: false, message: "Requested service not available." }, { status: 400, headers: corsHeaders });
+        return Response.json({ success: false, message: "Requested service not available." }, { status: 400, headers: corsHeaders });
       }
     }
 
-    // 3. STYLIST LOOKUP (OPTIONAL)
+    // 6. Find stylist optional
     let resolvedStylistId = null;
     if (stylist) {
       const { data: stylistData } = await supabaseServer
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6. DUPLICATE PREVENTION
+    // Duplicate check
     const startTimeStr = time.includes(':') ? time : `${time}:00`;
     const startTimeFull = `${date}T${startTimeStr}:00`;
 
@@ -122,10 +122,10 @@ export async function POST(req: Request) {
       .single();
 
     if (duplicate) {
-      return NextResponse.json({ success: false, message: "You already have an appointment at this time." }, { status: 400, headers: corsHeaders });
+      return Response.json({ success: false, message: "You already have an appointment at this time." }, { status: 400, headers: corsHeaders });
     }
 
-    // 4. APPOINTMENT INSERT
+    // 7. Convert timestamps
     const [hours, minutes] = startTimeStr.split(':').map(Number);
     const endDate = new Date(`${date}T00:00:00`);
     endDate.setHours(hours, minutes + durationMinutes, 0, 0);
@@ -136,59 +136,44 @@ export async function POST(req: Request) {
 
     const appointmentDate = `${date}T00:00:00`;
 
-    const insertData = {
-      tenant_id: 1,
-      customer_id: customerId,
-      stylist_id: resolvedStylistId,
-      service_id: resolvedServiceId,
-      date: appointmentDate,
-      start_time: startTimeFull,
-      end_time: endTimeFull,
-      status: 'scheduled',
-      reminder_sent: false,
-      booked_by_ai: true
-    };
-
-    console.log("Payload:", body);
-    console.log("customerId:", customerId);
-    console.log("serviceId:", resolvedServiceId);
-    console.log("stylistId:", resolvedStylistId);
-    console.log("Insert object:", insertData);
-
+    // 8. Insert into appointments
     const { data: appointment, error: appErr } = await supabaseServer
       .from('appointments')
-      .insert([insertData])
+      .insert([{
+        tenant_id: 1,
+        customer_id: customerId,
+        stylist_id: resolvedStylistId,
+        service_id: resolvedServiceId,
+        date: appointmentDate,
+        start_time: startTimeFull,
+        end_time: endTimeFull,
+        status: 'scheduled',
+        reminder_sent: false,
+        booked_by_ai: true
+      }])
       .select('id')
       .single();
 
     if (appErr || !appointment) {
-      console.error("SUPABASE INSERT ERROR:", appErr);
-      return NextResponse.json({ 
-        success: false, 
-        message: appErr?.message || "Failed to insert appointment into database.",
-        details: appErr?.details || null,
-        hint: appErr?.hint || null,
-        code: appErr?.code || null
-      }, { status: 500, headers: corsHeaders });
+      throw new Error(appErr?.message || "Failed to insert appointment");
     }
 
-    // 10. RETELL COMPATIBILITY
-    return NextResponse.json({ 
+    // 9. Return
+    return Response.json({ 
       success: true, 
-      booking_id: appointment.id,
-      message: "Appointment booked successfully."
+      booking_id: appointment.id
     }, { headers: corsHeaders });
 
-  } catch (err: any) {
-    // 7. ERROR HANDLING
-    console.error("BOOKING ERROR:", err);
-    return NextResponse.json({ 
-      success: false, 
-      message: err.message || "Unknown error",
-      details: err.details || null,
-      hint: err.hint || null,
-      code: err.code || null,
-      stack: err.stack || null
+  } catch (error: any) {
+    // 10. REAL catch block
+    console.error(error);
+
+    return Response.json({
+      success: false,
+      message: String(error.message),
+      code: error.code || null,
+      details: error.details || null,
+      hint: error.hint || null
     }, { status: 500, headers: corsHeaders });
   }
 }
