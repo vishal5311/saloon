@@ -12,6 +12,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function StatsGrid() {
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState([
     { label: "Total Customers", value: "0", change: "Live", trendingUp: true, icon: Users, key: 'customers' },
     { label: "Today Bookings", value: "0", change: "Live", trendingUp: true, icon: CheckCircle2, key: 'today_bookings' },
@@ -65,6 +66,8 @@ export default function StatsGrid() {
         }));
       } catch (e) {
         console.error("Critical Dashboard Sync Error:", e);
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -105,7 +108,9 @@ export default function StatsGrid() {
           
           <div>
             <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">{stat.label}</p>
-            <h3 className="text-2xl font-bold tracking-tight">{stat.value}</h3>
+            <h3 className="text-2xl font-bold tracking-tight">
+              {loading ? <span className="animate-pulse opacity-50">...</span> : stat.value}
+            </h3>
           </div>
         </motion.div>
       ))}
