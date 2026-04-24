@@ -13,48 +13,45 @@ import { supabase } from "@/lib/supabase";
 
 export default function StatsGrid() {
   const [stats, setStats] = useState([
-    { label: "Today's Revenue", value: "₹0", change: "Live", trendingUp: true, icon: TrendingUp, key: 'revenue' },
-    { label: "Total Bookings", value: "0", change: "Live", trendingUp: true, icon: CheckCircle2, key: 'bookings' },
-    { label: "AI Handled", value: "0%", change: "Live", trendingUp: true, icon: MessageSquare, key: 'ai' },
     { label: "Total Customers", value: "0", change: "Live", trendingUp: true, icon: Users, key: 'customers' },
+    { label: "Today Bookings", value: "0", change: "Live", trendingUp: true, icon: CheckCircle2, key: 'today_bookings' },
+    { label: "Pending Appts", value: "0", change: "Live", trendingUp: true, icon: TrendingUp, key: 'pending' },
+    { label: "AI Calls Today", value: "0", change: "Live", trendingUp: true, icon: MessageSquare, key: 'ai_calls' },
   ]);
 
   useEffect(() => {
     async function fetchStats() {
       const today = new Date().toISOString().split('T')[0];
+      const todayTimestamp = `${today}T00:00:00`;
 
-      // 1. Fetch Revenue from visits
-      const { data: visits } = await supabase
-        .from('visits')
-        .select('total_amount')
-        .gte('visit_date', today);
-      
-      const totalRevenue = visits?.reduce((acc, curr) => acc + (Number(curr.total_amount) || 0), 0) || 0;
-
-      // 2. Fetch Customers Count
+      // 1. Fetch Customers Count
       const { count: customerCount } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true });
 
-      // 3. Fetch Appointments Count
-      const { count: appointmentCount } = await supabase
+      // 2. Fetch Today's Bookings
+      const { count: todayBookings } = await supabase
         .from('appointments')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('date', todayTimestamp);
 
-      // 4. Calculate AI Handled %
-      const { data: convs } = await supabase
+      // 3. Fetch Pending (Scheduled) Appointments
+      const { count: pendingCount } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'scheduled');
+
+      // 4. Fetch AI Calls Today
+      const { count: aiCallsCount } = await supabase
         .from('conversations')
-        .select('source_type');
-      
-      const totalConvs = convs?.length || 0;
-      const aiConvs = convs?.filter(c => c.source_type !== 'manual').length || 0;
-      const aiPercent = totalConvs > 0 ? Math.round((aiConvs / totalConvs) * 100) : 0;
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', todayTimestamp);
 
       setStats(prev => prev.map(s => {
-        if (s.key === 'revenue') return { ...s, value: `₹${totalRevenue.toLocaleString()}` };
         if (s.key === 'customers') return { ...s, value: `${customerCount || 0}` };
-        if (s.key === 'bookings') return { ...s, value: `${appointmentCount || 0}` };
-        if (s.key === 'ai') return { ...s, value: `${aiPercent}%` };
+        if (s.key === 'today_bookings') return { ...s, value: `${todayBookings || 0}` };
+        if (s.key === 'pending') return { ...s, value: `${pendingCount || 0}` };
+        if (s.key === 'ai_calls') return { ...s, value: `${aiCallsCount || 0}` };
         return s;
       }));
     }

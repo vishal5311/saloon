@@ -5,7 +5,7 @@ import { MessageSquare, Phone, Clock, Search, Send, User, Bot, Loader2 } from "l
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function AIInteractionPage() {
+export default function AICallLogsPage() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,7 @@ export default function AIInteractionPage() {
     fetchConversations();
 
     const channel = supabase
-      .channel('conversations-chat-realtime')
+      .channel('conversations-calls-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
         fetchConversations();
       })
@@ -78,8 +78,8 @@ export default function AIInteractionPage() {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col space-y-8">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">AI Chat Logs</h2>
-        <p className="text-zinc-400 mt-1">Live monitoring of your AI assistant's interactions.</p>
+        <h2 className="text-3xl font-bold tracking-tight">AI Call Logs</h2>
+        <p className="text-zinc-400 mt-1">Live monitoring of your AI assistant's voice interactions.</p>
       </div>
 
       <div className="flex-1 flex gap-8 min-h-0">
