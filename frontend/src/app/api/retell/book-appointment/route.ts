@@ -194,20 +194,16 @@ export async function POST(request: Request) {
     // Trigger Automations (Non-blocking)
     const customerName = passedName || existingCustomer?.full_name || 'Walk-in Customer';
     
-    // 1. WhatsApp Confirmation (Direct Twilio SDK)
+    // 1. WhatsApp Confirmation (Centralized Utility)
     (async () => {
       try {
-        const twilioClient = require('twilio')(
-          process.env.TWILIO_ACCOUNT_SID,
-          process.env.TWILIO_AUTH_TOKEN
-        );
-        
-        await twilioClient.messages.create({
-          from: process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886',
-          to: `whatsapp:${normalizedPhone}`,
-          body: `Hi ${customerName} ✨\n\nYour appointment is confirmed.\n\nBooking ID: #${appointment.id}\nService: ${service || 'Hair Salon Service'}\nDate: ${normalizedDateStr}\nTime: ${time}\n\nAura Salon`
+        await sendWhatsAppConfirmation(normalizedPhone, {
+          name: customerName,
+          booking_id: appointment.id,
+          service: service || 'Hair Salon Service',
+          date: normalizedDateStr,
+          time: time
         });
-        console.log(`[WhatsApp Success] Confirmation sent to ${normalizedPhone}`);
       } catch (twErr) {
         console.error('[WhatsApp Automation Failed]', twErr);
       }
