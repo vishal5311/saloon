@@ -53,17 +53,17 @@ export default function StatsGrid({ stats }: { stats: any }) {
           className="tech-card p-6 rounded-[28px] relative overflow-hidden group"
         >
           <div className="flex justify-between items-start relative z-10 mb-4">
-            <div className={`p-3 rounded-xl bg-blue-50 text-blue-600 transition-all duration-500 group-hover:bg-blue-600 group-hover:text-white`}>
+            <div className={`p-3 rounded-xl bg-blue-500/10 text-blue-500 transition-all duration-500 group-hover:bg-blue-600 group-hover:text-white`}>
               <item.icon className="w-5 h-5" />
             </div>
           </div>
           
           <div className="relative z-10 space-y-1">
-            <h4 className="text-3xl font-semibold text-[#0C0B07] tracking-tighter">
+            <h4 className="text-3xl font-semibold text-white tracking-tighter">
               {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
             </h4>
-            <p className="text-[10px] font-bold text-[#0C0B07]/40 uppercase tracking-widest">{item.label}</p>
-            <p className="text-[10px] text-[#5E5E5E] font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">{item.label}</p>
+            <p className="text-[10px] text-white/20 font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               {item.desc}
             </p>
           </div>

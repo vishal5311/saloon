@@ -1,68 +1,69 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #F6F6F6;
-  --color-foreground: #0C0B07;
-  --color-card: #ffffff;
-  --color-primary: #1E40AF; /* Deep Blue */
-  --color-accent: #3B82F6;  /* Bright Blue */
   --font-sans: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+:root {
+  --background: #050505;
+  --foreground: #FFFFFF;
+  --card: #0C0B07;
+  --card-foreground: #FFFFFF;
+  --popover: #0C0B07;
+  --popover-foreground: #FFFFFF;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E1E1E;
+  --secondary-foreground: #FFFFFF;
+  --muted: #1E1E1E;
+  --muted-foreground: #A1A1AA;
+  --accent: #3B82F6;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #1A1A1A;
+  --input: #1A1A1A;
+  --ring: #3B82F6;
+  --radius: 1rem;
+}
+
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Utilities from Reference */
-.figma-grid-bg {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background-image:
-    linear-gradient(to right, rgba(12, 11, 7, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(12, 11, 7, 0.05) 1px, transparent 1px);
-  background-size: 48px 48px;
-  transform: rotate(30deg);
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0) 100%);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.6) 50%, rgba(0, 0, 0, 0) 100%);
-  pointer-events: none;
-  z-index: 0;
-}
+@layer utilities {
+  .figma-grid-bg {
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
 
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(12, 11, 7, 0.05);
-  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.05);
-}
+  .tech-card {
+    background: rgba(12, 11, 7, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 
-.tech-card {
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(12, 11, 7, 0.05);
-  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
+  .tech-card:hover {
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1);
+    transform: translateY(-4px);
+  }
 
-.tech-card:hover {
-  background: #ffffff;
-  border-color: rgba(59, 130, 246, 0.2);
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
-}
+  .text-gradient-blue {
+    background: linear-gradient(to right, #3B82F6, #60A5FA);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 
-.badge-gradient-border {
-  background: linear-gradient(#F6F6F6, #F6F6F6) padding-box,
-  linear-gradient(to right, #1E40AF, #3B82F6, #60A5FA) border-box;
-  border: 1.5px solid transparent;
-}
-
-.text-gradient-blue {
-  background: linear-gradient(to right, #1E40AF, #3B82F6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  .badge-gradient-border {
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
