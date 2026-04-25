@@ -9,25 +9,29 @@ export async function sendWhatsAppConfirmation(to: string, data: {
   service: string;
   date: string;
   time: string;
-  mediaUrl?: string; // Optional URL for haircut images or brochures
+  mediaUrl?: string;
 }) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  // Use TWILIO_WHATSAPP_FROM if available, fallback to TWILIO_PHONE_NUMBER
-  const fromNumber = process.env.TWILIO_WHATSAPP_FROM || process.env.TWILIO_PHONE_NUMBER || '+12134444772';
+  const fromNumber = process.env.TWILIO_WHATSAPP_FROM || process.env.TWILIO_PHONE_NUMBER;
+
+  if (!accountSid || !authToken || !fromNumber) {
+    const missing = [];
+    if (!accountSid) missing.push('TWILIO_ACCOUNT_SID');
+    if (!authToken) missing.push('TWILIO_AUTH_TOKEN');
+    if (!fromNumber) missing.push('TWILIO_WHATSAPP_FROM');
+    
+    return { 
+      success: false, 
+      error: `Twilio credentials missing: ${missing.join(', ')}` 
+    };
+  }
 
   try {
-    if (!accountSid || !authToken) {
-      console.error('[WhatsApp] Configuration Error: Missing Twilio Account SID or Auth Token');
-      return { success: false, error: 'Missing credentials' };
-    }
-
     const client = twilio(accountSid, authToken);
     const whatsappFrom = fromNumber.startsWith('whatsapp:') ? fromNumber : `whatsapp:${fromNumber}`;
     const toFormatted = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
     
-    console.log(`[WhatsApp] Attempting to send message from ${whatsappFrom} to ${toFormatted} for Booking #${data.booking_id}`);
-
     const messageBody = `Hi ${data.name} ✨
 
 Your appointment is confirmed.
@@ -50,21 +54,14 @@ We look forward to seeing you.`;
       to: toFormatted
     };
 
-    // Add media if provided
     if (data.mediaUrl) {
       messageOptions.mediaUrl = [data.mediaUrl];
     }
 
     const message = await client.messages.create(messageOptions);
-
-    console.log(`[WhatsApp] Success! Message SID: ${message.sid}`);
     return { success: true, sid: message.sid };
   } catch (error: any) {
-    console.error('[WhatsApp] Twilio API Error:', {
-      code: error.code,
-      message: error.message,
-      moreInfo: error.moreInfo
-    });
+    console.error('[WhatsApp Error]:', error.message);
     return { success: false, error: error.message };
   }
 }
@@ -75,7 +72,11 @@ We look forward to seeing you.`;
 export async function sendWhatsAppMedia(to: string, mediaUrl: string, caption?: string) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_WHATSAPP_FROM || process.env.TWILIO_PHONE_NUMBER || '+12134444772';
+  const fromNumber = process.env.TWILIO_WHATSAPP_FROM || process.env.TWILIO_PHONE_NUMBER;
+
+  if (!accountSid || !authToken || !fromNumber) {
+    return { success: false, error: 'Twilio credentials missing' };
+  }
 
   try {
     const client = twilio(accountSid, authToken);
@@ -91,7 +92,6 @@ export async function sendWhatsAppMedia(to: string, mediaUrl: string, caption?: 
 
     return { success: true, sid: message.sid };
   } catch (error: any) {
-    console.error('[WhatsApp Media] Error:', error.message);
     return { success: false, error: error.message };
   }
 }
