@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [isRetraining, setIsRetraining] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Data States
   const [services, setServices] = useState<any[]>([]);
@@ -52,6 +53,26 @@ export default function SettingsPage() {
       setIsSaving(false);
       setActiveSection(null);
     }, 1000);
+  };
+
+  const handleResetData = async () => {
+    if (!confirm("CRITICAL WARNING: Are you sure you want to clear all operational data? This will permanently delete all customers, appointments, and conversations. This action cannot be undone.")) return;
+    
+    setIsResetting(true);
+    try {
+      const res = await fetch('/api/admin/reset', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert("System data cleared successfully!");
+        window.location.reload(); // Reload to clear frontend state
+      } else {
+        alert("Failed to clear data: " + data.message);
+      }
+    } catch (e) {
+      alert("An error occurred while clearing data.");
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const renderModalContent = () => {
@@ -273,6 +294,30 @@ export default function SettingsPage() {
               {isAiActive ? 'Suspend Voice Node' : 'Activate Voice Node'}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="tech-card p-10 rounded-[3rem] text-white relative overflow-hidden mt-12 border border-red-500/20 shadow-lg shadow-red-500/5">
+        <div className="absolute inset-0 bg-red-500/5 pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <h4 className="text-2xl font-semibold tracking-tight text-white mb-2 flex items-center gap-2">
+              <Trash2 className="w-6 h-6 text-red-500" />
+              Danger Zone
+            </h4>
+            <p className="text-sm text-white/50 font-light max-w-md leading-relaxed">
+              Permanently delete all customers, appointments, and conversations across the frontend, backend, and database. Services and Stylists are preserved. This action cannot be undone.
+            </p>
+          </div>
+          <button 
+            onClick={handleResetData}
+            disabled={isResetting}
+            className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-sm font-bold transition-all flex items-center gap-3 whitespace-nowrap shadow-xl shadow-red-500/20 disabled:opacity-50"
+          >
+            {isResetting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+            {isResetting ? 'Purging Systems...' : 'Clear All Data'}
+          </button>
         </div>
       </div>
 

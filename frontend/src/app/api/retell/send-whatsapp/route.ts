@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendWhatsAppConfirmation } from '@/lib/whatsapp';
+import twilio from 'twilio';
 import { normalizePhone } from '@/lib/phone-utils';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ 
         success: false, 
         message: "Twilio credentials missing" 
-      }, { status: 200, headers: corsHeaders }); // Using 200 as per common webhook patterns, but message says error
+      }, { status: 200, headers: corsHeaders });
     }
 
     // 2. Parse Payload
@@ -47,31 +47,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Phone number is required" }, { status: 400, headers: corsHeaders });
     }
 
-    // 3. Send via Twilio
+    // 3. Send via Twilio SDK
+    const client = twilio(accountSid, authToken);
     const normalizedPhone = normalizePhone(phone);
-    const result = await sendWhatsAppConfirmation(normalizedPhone, {
-      name: name || 'Customer',
-      booking_id: booking_id || 'N/A',
-      service: service || 'Service',
-      date: date || 'Scheduled',
-      time: time || 'Requested',
-      mediaUrl: mediaUrl
-    });
+    
+    const toFormatted = normalizedPhone.startsWith('whatsapp:') ? normalizedPhone : `whatsapp:${normalizedPhone}`;
+    const fromFormatted = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
 
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        status: "sent",
-        message: "WhatsApp confirmation sent."
-      }, { status: 200, headers: corsHeaders });
-    } else {
-      return NextResponse.json({
-        success: false,
-        message: result.error || "Failed to send WhatsApp"
-      }, { status: 200, headers: corsHeaders });
+    const messageBody = `Hi ${name || 'Customer'} ✨\n\nYour appointment is confirmed.\n\nBooking ID: #${booking_id || 'N/A'}\nService: ${service || 'Service'}\nDate: ${date || 'Scheduled'}\nTime: ${time || 'Requested'}\n\n📍 Aura Salon\n⏰ Please arrive 5 minutes early.\n\nReply RESCHEDULE if needed.\n\nWe look forward to seeing you.`;
+
+    const messageOptions: any = {
+      body: messageBody,
+      from: fromFormatted,
+      to: toFormatted
+    };
+
+    if (mediaUrl) {
+      messageOptions.mediaUrl = [mediaUrl];
     }
 
+    const message = await client.messages.create(messageOptions);
+
+    return NextResponse.json({
+      success: true,
+      status: "sent",
+      message: "WhatsApp confirmation sent.",
+      sid: message.sid
+    }, { status: 200, headers: corsHeaders });
+
   } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500, headers: corsHeaders });
+    console.error('[WhatsApp Route Error]:', error.message);
+    return NextResponse.json({ success: false, message: error.message }, { status: 200, headers: corsHeaders });
   }
 }
