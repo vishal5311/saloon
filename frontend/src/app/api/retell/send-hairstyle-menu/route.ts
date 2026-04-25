@@ -10,12 +10,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Hairstyle catalog — replace image URLs with your own hosted images
+// Hairstyle catalog with direct image URLs
 const HAIRSTYLE_CATALOG = [
-  { id: 1, name: 'Classic Fade', imageUrl: 'https://i.ibb.co/placeholder-fade' },
-  { id: 2, name: 'Textured Crop', imageUrl: 'https://i.ibb.co/placeholder-crop' },
-  { id: 3, name: 'Slick Back', imageUrl: 'https://i.ibb.co/placeholder-slick' },
-  { id: 4, name: 'Modern Layer Cut', imageUrl: 'https://i.ibb.co/placeholder-layer' },
+  { id: 1, name: 'Classic Fade', imageUrl: 'https://www.hairstyleslife.com/wp-content/uploads/2018/03/Hairstyles-for-Men-2018-Best-Haircut-Ideas-for-Guys-2.jpg' },
+  { id: 2, name: 'Textured Crop', imageUrl: 'https://haircutinspiration.com/wp-content/uploads/2022/11/Haircuts-for-Men-High-Fade-with-Brush-Up.jpg' },
+  { id: 3, name: 'Slick Back', imageUrl: 'https://i.pinimg.com/originals/24/6e/fb/246efb566a4d881783aef3bbb36a66db.jpg' },
+  { id: 4, name: 'Modern Layer Cut', imageUrl: 'https://cdn.shopify.com/s/files/1/2384/0833/files/1_Quiff_1024x1024.jpg?v=1668876008' },
 ];
 
 export async function OPTIONS() {
