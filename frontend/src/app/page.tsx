@@ -24,7 +24,7 @@ export default function Dashboard() {
       
       const { data: convs } = await supabase
         .from('conversations')
-        .select('*')
+        .select('*, customers(full_name)')
         .order('created_at', { ascending: false })
         .limit(5);
       if (convs) setConversations(convs);
@@ -153,10 +153,20 @@ export default function Dashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
-                          <p className="font-semibold text-sm text-white">Customer Interaction</p>
+                          <p className="font-semibold text-sm text-white">
+                            {msg.customers?.full_name || "Customer Interaction"}
+                          </p>
                           <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">LIVE</span>
                         </div>
-                        <p className="text-sm text-white/40 leading-relaxed line-clamp-2">"{msg.incoming_text || msg.transcript_summary || "Call initiated..."}"</p>
+                        <p className="text-sm text-white/40 leading-relaxed line-clamp-2 italic">
+                          {msg.transcript_summary || msg.incoming_text || "Call initiated..."}
+                        </p>
+                        {msg.intent === 'hairstyle_selected' && (
+                          <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg w-fit">
+                            <Sparkles className="w-3 h-3 text-purple-400" />
+                            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Style Locked</span>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   ))

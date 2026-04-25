@@ -16,6 +16,8 @@ export default function AppointmentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+  const [markedDays, setMarkedDays] = useState<number[]>([]);
+
 
   async function initializeView() {
     setLoading(true);
@@ -59,6 +61,28 @@ export default function AppointmentsPage() {
       supabase.removeChannel(channel);
     };
   }, [selectedDate]);
+
+  useEffect(() => {
+    async function fetchMarkedDays() {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth() + 1;
+      const startOfMonth = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
+      const endOfMonth = `${year}-${String(month).padStart(2, '0')}-31T23:59:59`;
+
+      const { data } = await supabase
+        .from('appointments')
+        .select('date')
+        .eq('tenant_id', 1)
+        .gte('date', startOfMonth)
+        .lte('date', endOfMonth);
+      
+      if (data) {
+        const days = data.map(a => new Date(a.date).getDate());
+        setMarkedDays([...new Set(days)]);
+      }
+    }
+    fetchMarkedDays();
+  }, [selectedDate.getMonth(), selectedDate.getFullYear()]);
 
   return (
     <div className="relative space-y-10 max-w-[1400px] mx-auto">
@@ -136,9 +160,12 @@ export default function AppointmentsPage() {
                   d.setDate(i + 1);
                   setSelectedDate(d);
                 }}
-                className={`py-3 text-sm font-medium rounded-xl transition-all ${selectedDate.getDate() === i + 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-110' : 'hover:bg-white/5 text-white/40 hover:text-white'}`}
+                className={`py-3 text-sm font-medium rounded-xl transition-all relative ${selectedDate.getDate() === i + 1 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-110' : 'hover:bg-white/5 text-white/40 hover:text-white'}`}
               >
                 {i + 1}
+                {markedDays.includes(i + 1) && (
+                  <div className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${selectedDate.getDate() === i + 1 ? 'bg-white' : 'bg-blue-500'}`} />
+                )}
               </button>
             ))}
           </div>
