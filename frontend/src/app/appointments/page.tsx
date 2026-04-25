@@ -205,6 +205,12 @@ export default function AppointmentsPage() {
                               <Scissors className="w-4 h-4 text-blue-500" />
                               <span className="font-medium text-white/80">{app.stylists?.name || 'Fleet Member'}</span>
                             </div>
+                            {app.selected_style && (
+                              <div className="flex items-center gap-2.5 text-sm">
+                                <Sparkles className="w-4 h-4 text-purple-400" />
+                                <span className="font-medium text-purple-300">Style: {app.selected_style}</span>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       ) : (

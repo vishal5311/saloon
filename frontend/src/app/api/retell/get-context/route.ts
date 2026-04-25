@@ -91,6 +91,11 @@ export async function POST(req: Request) {
       ? `They ALREADY HAVE an upcoming booking: ${upcoming.map((u: any) => `${u.service} on ${u.date} at ${u.time}`).join(', ')}.`
       : `They have no upcoming bookings.`;
 
+    // Format preferred style context
+    const styleContext = customer.preferred_style
+      ? `Their preferred hairstyle is "${customer.preferred_style}". Suggest: "Would you like the same ${customer.preferred_style} again?"`
+      : '';
+
     return NextResponse.json({
       exists: true,
       today,
@@ -98,17 +103,20 @@ export async function POST(req: Request) {
       loyalty_points: customer.loyalty_points,
       last_visit: lastVisit?.visit_date || "N/A",
       favorite_stylist: lastStylist,
+      preferred_style: customer.preferred_style || null,
       upcoming_appointments: upcoming,
       context_prompt: `Today is ${today}. The caller is ${customer.full_name}. ${historyContext} 
       ${upcomingContext}
       They have ${customer.loyalty_points || 0} loyalty points. 
+      ${styleContext}
       
       CRITICAL INSTRUCTIONS:
       1. If they have an upcoming booking, MENTION IT IMMEDIATELY in the greeting. "I see you're already scheduled for ${upcoming[0]?.service} tomorrow at ${upcoming[0]?.time}."
       2. If they ask to book for the SAME time, tell them they are already booked.
       3. Offer to keep, reschedule, or cancel the existing booking.
       4. Suggest adding a service (hair spa, wash, or facial) to their existing visit.
-      5. Greet them warmly: "Welcome back ${customer.full_name}!"`
+      5. If they have a preferred style, ask if they'd like the same style again.
+      6. Greet them warmly: "Welcome back ${customer.full_name}!"`
     }, { headers: corsHeaders });
 
   } catch (err: any) {

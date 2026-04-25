@@ -204,12 +204,38 @@ export async function POST(request: Request) {
           date: normalizedDateStr,
           time: time
         });
+
+        // 2. Send Hairstyle Selection Menu (for haircut-related services)
+        const isHaircutService = (service || '').toLowerCase().match(/hair|cut|fade|trim|style|groom/);
+        if (isHaircutService) {
+          // Small delay so confirmation arrives first
+          await new Promise(r => setTimeout(r, 2000));
+          try {
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.URL || '';
+            if (baseUrl) {
+              await fetch(`${baseUrl}/api/retell/send-hairstyle-menu`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  phone: normalizedPhone,
+                  name: customerName,
+                  booking_id: appointment.id,
+                  service: service || 'Haircut',
+                  date: normalizedDateStr,
+                  time: time
+                })
+              });
+            }
+          } catch (menuErr) {
+            console.error('[Hairstyle Menu Automation Failed]', menuErr);
+          }
+        }
       } catch (twErr) {
         console.error('[WhatsApp Automation Failed]', twErr);
       }
     })();
 
-    // 2. Calendar Sync
+    // 3. Calendar Sync
     syncToGoogleCalendar({
       customer_name: customerName,
       service: service || 'Hair Salon Service',

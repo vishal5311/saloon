@@ -160,6 +160,12 @@ export default function CustomersPage() {
                             <p className="text-xs text-white/30 font-mono mt-0.5">
                               {customer.mobile_number}
                             </p>
+                            {customer.preferred_style && (
+                              <p className="text-xs text-purple-400 mt-1 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" />
+                                {customer.preferred_style}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
