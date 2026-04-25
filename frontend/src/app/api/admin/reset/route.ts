@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase service role client to bypass RLS and delete all data
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
   try {
+    // Initialize inside the function to avoid build-time execution errors
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ success: false, message: "Supabase credentials missing" }, { status: 500 });
+    }
+    
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
     const tablesToClear = ['appointments', 'conversations', 'customers'];
     const results: Record<string, string> = {};
 
