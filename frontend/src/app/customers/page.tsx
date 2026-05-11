@@ -156,7 +156,11 @@ export default function CustomersPage() {
                             {customer.full_name?.charAt(0) || "U"}
                           </div>
                           <div>
-                            <p className="font-semibold text-[15px] text-white group-hover:text-blue-400 transition-colors">{customer.full_name}</p>
+                            <p className="font-semibold text-[15px] text-white group-hover:text-blue-400 transition-colors">
+                              {['walk-in customer', 'guest', 'unknown', 'null', 'blank'].includes(customer.full_name?.toLowerCase()) 
+                                ? "New Client" 
+                                : (customer.full_name || "New Client")}
+                            </p>
                             <p className="text-xs text-white/30 font-mono mt-0.5">
                               {customer.mobile_number}
                             </p>

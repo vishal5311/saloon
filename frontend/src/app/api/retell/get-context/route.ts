@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { getToday } from '@/lib/date-utils';
 import { normalizePhone } from '@/lib/phone-utils';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
-const supabaseServer = createClient(supabaseUrl, supabaseServiceKey);
 
 export const dynamic = 'force-dynamic';
 
@@ -96,27 +92,34 @@ export async function POST(req: Request) {
       ? `Their preferred hairstyle is "${customer.preferred_style}". Suggest: "Would you like the same ${customer.preferred_style} again?"`
       : '';
 
+    const placeholders = ['walk-in customer', 'guest', 'unknown', 'null', 'blank', ''];
+    const currentName = customer.full_name?.trim() || "";
+    const isPlaceholder = placeholders.includes(currentName.toLowerCase());
+    const needsName = !currentName || isPlaceholder;
+
     return NextResponse.json({
       exists: true,
       today,
-      full_name: customer.full_name,
+      full_name: isPlaceholder ? null : customer.full_name,
+      needs_name: needsName,
       loyalty_points: customer.loyalty_points,
       last_visit: lastVisit?.visit_date || "N/A",
       favorite_stylist: lastStylist,
       preferred_style: customer.preferred_style || null,
       upcoming_appointments: upcoming,
-      context_prompt: `Today is ${today}. The caller is ${customer.full_name}. ${historyContext} 
+      context_prompt: `Today is ${today}. ${needsName ? "We don't have the caller's name yet." : `The caller is ${customer.full_name}.`} ${historyContext} 
       ${upcomingContext}
       They have ${customer.loyalty_points || 0} loyalty points. 
       ${styleContext}
       
       CRITICAL INSTRUCTIONS:
-      1. If they have an upcoming booking, MENTION IT IMMEDIATELY in the greeting. "I see you're already scheduled for ${upcoming[0]?.service} tomorrow at ${upcoming[0]?.time}."
-      2. If they ask to book for the SAME time, tell them they are already booked.
-      3. Offer to keep, reschedule, or cancel the existing booking.
-      4. Suggest adding a service (hair spa, wash, or facial) to their existing visit.
-      5. If they have a preferred style, ask if they'd like the same style again.
-      6. Greet them warmly: "Welcome back ${customer.full_name}!"`
+      1. ${needsName ? "Since you don't have their name, say: 'I have your number on file, but I don't seem to have your name. May I have your name please?'" : `Greet them warmly: 'Welcome back ${customer.full_name}!'`}
+      2. If they have an upcoming booking, MENTION IT IMMEDIATELY. "I see you're already scheduled for ${upcoming[0]?.service} on ${upcoming[0]?.date}."
+      3. If they provide their name, use the save_customer_name tool immediately.
+      4. If they ask to book for the SAME time, tell them they are already booked.
+      5. Offer to keep, reschedule, or cancel the existing booking.
+      6. Suggest adding a service (hair spa, wash, or facial) to their existing visit.
+      7. If they have a preferred style, ask if they'd like the same style again.`
     }, { headers: corsHeaders });
 
   } catch (err: any) {

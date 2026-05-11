@@ -58,16 +58,12 @@ export async function POST(request: Request) {
     const toFormatted = normalizedPhone.startsWith('whatsapp:') ? normalizedPhone : `whatsapp:${normalizedPhone}`;
     const fromFormatted = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
 
-    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
     // Message 1: Intro text
     await client.messages.create({
       body: `Hi ${name || 'there'} ✨\n\nChoose your hairstyle for your ${service || 'haircut'} on ${date || 'your appointment'} at ${time || 'scheduled time'}:`,
       from: fromFormatted,
       to: toFormatted
     });
-
-    await delay(2000); // Wait 2s after intro
 
     // Messages 2-5: Send each hairstyle image
     for (const style of HAIRSTYLE_CATALOG) {
@@ -77,7 +73,6 @@ export async function POST(request: Request) {
         to: toFormatted,
         mediaUrl: [style.imageUrl]
       });
-      await delay(5000); // 5-second gap between each image for Sandbox limits
     }
 
     // Message 6: Selection prompt

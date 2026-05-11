@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { combineDateAndTime, normalizeDate } from '@/lib/date-utils';
 import { normalizePhone } from '@/lib/phone-utils';
 import { sendWhatsAppConfirmation } from '@/lib/whatsapp';
 import { syncToGoogleCalendar } from '@/lib/calendar';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://njeaekidfetlwcvxqlmm.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
-const supabaseServer = createClient(supabaseUrl, supabaseServiceKey);
 
 export const dynamic = 'force-dynamic';
 
@@ -55,8 +51,19 @@ export async function POST(request: Request) {
       .eq('mobile_number', normalizedPhone)
       .maybeSingle();
 
+    const placeholders = ['walk-in customer', 'guest', 'unknown', 'null', 'blank', ''];
+    
     if (existingCustomer) {
       customerId = existingCustomer.id;
+      
+      // If we have a name now but the existing one is a placeholder, update it
+      const currentName = existingCustomer.full_name?.trim() || "";
+      if (passedName && (placeholders.includes(currentName.toLowerCase()) || !currentName)) {
+        await supabaseServer
+          .from('customers')
+          .update({ full_name: passedName })
+          .eq('id', customerId);
+      }
     } else {
       const { data: newCustomer, error: custErr } = await supabaseServer
         .from('customers')
@@ -194,37 +201,41 @@ export async function POST(request: Request) {
     // Trigger Automations (Non-blocking)
     const customerName = passedName || existingCustomer?.full_name || 'Walk-in Customer';
     
-    // 1. WhatsApp confirmation/Hairstyle Menu
+    // 1. WhatsApp Confirmation (Centralized Utility)
     (async () => {
       try {
+        await sendWhatsAppConfirmation(normalizedPhone, {
+          name: customerName,
+          booking_id: appointment.id,
+          service: service || 'Hair Salon Service',
+          date: normalizedDateStr,
+          time: time
+        });
+
+        // 2. Send Hairstyle Selection Menu (for haircut-related services)
         const isHaircutService = (service || '').toLowerCase().match(/hair|cut|fade|trim|style|groom/);
-        
         if (isHaircutService) {
-          // Send hairstyle menu directly (it includes the greeting)
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.URL || '';
-          if (baseUrl) {
-            await fetch(`${baseUrl}/api/retell/send-hairstyle-menu`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phone: normalizedPhone,
-                name: customerName,
-                booking_id: appointment.id,
-                service: service || 'Haircut',
-                date: normalizedDateStr,
-                time: time
-              })
-            });
+          // Small delay so confirmation arrives first
+          await new Promise(r => setTimeout(r, 2000));
+          try {
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.URL || '';
+            if (baseUrl) {
+              await fetch(`${baseUrl}/api/retell/send-hairstyle-menu`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  phone: normalizedPhone,
+                  name: customerName,
+                  booking_id: appointment.id,
+                  service: service || 'Haircut',
+                  date: normalizedDateStr,
+                  time: time
+                })
+              });
+            }
+          } catch (menuErr) {
+            console.error('[Hairstyle Menu Automation Failed]', menuErr);
           }
-        } else {
-          // Standard confirmation for other services
-          await sendWhatsAppConfirmation(normalizedPhone, {
-            name: customerName,
-            booking_id: appointment.id,
-            service: service || 'Hair Salon Service',
-            date: normalizedDateStr,
-            time: time
-          });
         }
       } catch (twErr) {
         console.error('[WhatsApp Automation Failed]', twErr);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import twilio from 'twilio';
 
 export const dynamic = 'force-dynamic';
@@ -14,18 +14,17 @@ export async function GET() {
       TWILIO_ACCOUNT_SID: !!process.env.TWILIO_ACCOUNT_SID,
       TWILIO_AUTH_TOKEN: !!process.env.TWILIO_AUTH_TOKEN,
       RETELL_AGENT_ID: !!process.env.RETELL_AGENT_ID,
+      NEXT_PUBLIC_SITE_URL: !!process.env.NEXT_PUBLIC_SITE_URL,
     }
   };
 
-  // 1. Check Supabase
+  // 1. Check Supabase using shared server client (with timeout)
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || ''
-    );
-    const { data, error } = await supabase.from('stylists').select('count', { count: 'exact', head: true });
+    const { count, error } = await supabaseServer
+      .from('stylists')
+      .select('*', { count: 'exact', head: true });
     if (error) throw error;
-    diagnostics.supabase = { status: 'ok', details: `Found ${data === null ? 0 : data} stylists` };
+    diagnostics.supabase = { status: 'ok', details: `Connected. Found ${count ?? 0} stylists.` };
   } catch (e: any) {
     diagnostics.supabase = { status: 'error', details: e.message };
   }
