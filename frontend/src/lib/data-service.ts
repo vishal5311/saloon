@@ -20,7 +20,7 @@ export const dataService = {
       supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID).eq('date', todayTimestamp),
       supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID).eq('status', 'scheduled'),
       supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID).gte('created_at', todayTimestamp)
+      supabase.from('calls').select('*', { count: 'exact', head: true }).gte('created_at', todayTimestamp)
     ]);
 
     return {
@@ -73,13 +73,26 @@ export const dataService = {
    * Fetch All AI Call Logs
    */
   async getCalls() {
+    console.log("[DataService] Fetching all interactions...");
     const { data, error } = await supabase
-      .from('conversations')
+      .from('calls')
       .select('*, customers(full_name, mobile_number)')
-      .eq('tenant_id', TENANT_ID)
       .order('created_at', { ascending: false });
 
-    if (error) console.error("DataService Error (getCalls):", error);
+    if (error) {
+      console.error("[DataService] Primary fetch (calls) failed:", error.message, error.details);
+      // Fallback to conversations table
+      const { data: convData, error: convError } = await supabase
+        .from('conversations')
+        .select('*, customers(full_name, mobile_number)')
+        .eq('tenant_id', TENANT_ID)
+        .order('created_at', { ascending: false });
+      
+      if (convError) console.error("[DataService] Fallback fetch (conversations) failed:", convError.message);
+      return convData || [];
+    }
+    
+    console.log(`[DataService] Successfully fetched ${data?.length || 0} interactions.`);
     return data || [];
   },
 

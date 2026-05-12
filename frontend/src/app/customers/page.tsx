@@ -56,6 +56,37 @@ export default function CustomersPage() {
     setIsModalOpen(true);
   };
 
+  const [isCalling, setIsCalling] = useState<string | null>(null);
+
+  const handleCall = async (customer: any) => {
+    if (isCalling) return;
+    
+    setIsCalling(customer.id);
+    try {
+      const response = await fetch("/api/call/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customer_name: customer.full_name,
+          customer_id: customer.id,
+          phone_number: customer.mobile_number,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || "Failed to initiate call");
+      }
+    } catch (error) {
+      console.error("Call failed:", error);
+      alert("An error occurred while starting the call.");
+    } finally {
+      setIsCalling(null);
+    }
+  };
+
   return (
     <div className="relative space-y-10 max-w-[1400px] mx-auto">
       {/* Background Grid */}
@@ -186,15 +217,33 @@ export default function CustomersPage() {
                       </td>
                       <td className="px-10 py-6 text-sm text-white/40 font-light">{lastVisit}</td>
                       <td className="px-10 py-6 text-right">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEdit(customer);
-                          }}
-                          className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/10 group-hover:text-blue-500"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCall(customer);
+                            }}
+                            disabled={!!isCalling}
+                            className={`p-2 rounded-xl transition-colors ${
+                              isCalling === customer.id 
+                                ? "bg-blue-500/20 text-blue-500 animate-pulse" 
+                                : "hover:bg-white/5 text-white/10 hover:text-green-500"
+                            }`}
+                            title="Call Customer"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEdit(customer);
+                            }}
+                            className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/10 hover:text-blue-500"
+                            title="Edit Identity"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </motion.tr>
                   );
